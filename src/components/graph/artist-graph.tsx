@@ -321,9 +321,13 @@ export function ArtistGraph({
       stop: () => {
         if (isDestroyedRef.current || cy.destroyed()) return;
         setIsLayouting(false);
-        // After layout, fit all nodes in view
+        // After layout, fit all nodes in view, then center on root
         try {
           cy.fit(undefined, 20);
+          const root = cy.$('node[root = "true"]');
+          if (root.length) {
+            cy.center(root);
+          }
         } catch {
           // Ignore errors during cleanup
         }
@@ -335,7 +339,11 @@ export function ArtistGraph({
   // Fit to view
   const fitToView = useCallback(() => {
     if (!cyRef.current || isDestroyedRef.current) return;
-    cyRef.current.fit(undefined, 50);
+    cyRef.current.fit(undefined, 20);
+    const root = cyRef.current.$('node[root = "true"]');
+    if (root.length) {
+      cyRef.current.center(root);
+    }
   }, []);
 
   // Center on root node
@@ -387,15 +395,39 @@ export function ArtistGraph({
       stop: () => {
         if (isDestroyedRef.current || cy.destroyed()) return;
         setIsLayouting(false);
-        // Fit all nodes in view after layout
+        // Fit all nodes in view, then center on root
         try {
           cy.fit(undefined, 20);
+          // Center viewport on the root node so it's visually centered
+          const root = cy.$('node[root = "true"]');
+          if (root.length) {
+            cy.center(root);
+          }
         } catch {
           // Ignore errors during cleanup
         }
       },
     });
     layoutRef.current.run();
+
+    // Handle resize - update graph when container size changes
+    const resizeObserver = new ResizeObserver(() => {
+      if (isDestroyedRef.current || !cyRef.current || cy.destroyed()) return;
+      try {
+        cy.resize();
+        cy.fit(undefined, 20);
+        const root = cy.$('node[root = "true"]');
+        if (root.length) {
+          cy.center(root);
+        }
+      } catch {
+        // Ignore errors during cleanup
+      }
+    });
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     // Handle node drag - re-run layout to maintain physics
     let dragTimeout: NodeJS.Timeout | null = null;
@@ -477,6 +509,7 @@ export function ArtistGraph({
     // Cleanup
     return () => {
       isDestroyedRef.current = true;
+      resizeObserver.disconnect();
       if (dragTimeout) clearTimeout(dragTimeout);
       if (layoutRef.current) {
         try {
