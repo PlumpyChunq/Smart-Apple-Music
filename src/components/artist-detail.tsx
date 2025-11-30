@@ -5,6 +5,7 @@ import { useArtistRelationships } from '@/lib/musicbrainz/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { GraphView } from '@/components/graph';
+import { addToFavorites, removeFromFavorites, isFavorite } from '@/components/artist-search';
 import type { ArtistNode, ArtistRelationship, ArtistGraph } from '@/types';
 import { getArtistRelationships } from '@/lib/musicbrainz/client';
 
@@ -234,6 +235,22 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   const [expansionDepth, setExpansionDepth] = useState<ExpansionDepth>(2);
   const [expandProgress, setExpandProgress] = useState<{ current: number; total: number } | null>(null);
   const [showList, setShowList] = useState(true);
+  const [isFav, setIsFav] = useState(false);
+
+  // Check if artist is favorite on mount
+  useEffect(() => {
+    setIsFav(isFavorite(artist.id));
+  }, [artist.id]);
+
+  const handleToggleFavorite = useCallback(() => {
+    if (isFav) {
+      removeFromFavorites(artist.id);
+      setIsFav(false);
+    } else {
+      addToFavorites(artist);
+      setIsFav(true);
+    }
+  }, [artist, isFav]);
 
   const { data, isLoading, error } = useArtistRelationships(artist.id);
 
@@ -405,11 +422,22 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
       <Card>
         <CardHeader className="py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl">{artist.name}</CardTitle>
-              {artist.disambiguation && (
-                <CardDescription className="text-base">{artist.disambiguation}</CardDescription>
-              )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleToggleFavorite}
+                className={`text-2xl transition-colors ${
+                  isFav ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'
+                }`}
+                title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                {isFav ? '★' : '☆'}
+              </button>
+              <div>
+                <CardTitle className="text-2xl">{artist.name}</CardTitle>
+                {artist.disambiguation && (
+                  <CardDescription className="text-base">{artist.disambiguation}</CardDescription>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
