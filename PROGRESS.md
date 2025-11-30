@@ -169,9 +169,11 @@ Leverage ALL MusicBrainz relationship types for richer discovery:
 A horizontal timeline panel at the bottom of the artist detail page showing the band's history:
 
 #### Visual Design
-- Long horizontal scrollable timeline (full width at bottom of page)
+- **Full-width responsive panel** - Stretches edge-to-edge at the bottom of the page
+- **Reactive to browser resize** - Timeline automatically adjusts width as window is resized
 - Spans from band formation to present (or dissolution)
 - Interactive zoom/scroll for detailed exploration
+- Fixed height (~150-200px) with the graph/members section above
 
 #### Timeline Events to Display
 - [ ] **Band Formation** - Start date with founding members
@@ -190,9 +192,11 @@ A horizontal timeline panel at the bottom of the artist detail page showing the 
 #### Technical Implementation
 - [ ] Research timeline visualization libraries (vis-timeline, react-chrono, etc.)
 - [ ] Aggregate event data from MusicBrainz releases + relationships
-- [ ] Design responsive horizontal scroll UI
+- [ ] **Full-width CSS layout** - Use `w-full` / `100vw` to span entire viewport width
+- [ ] **ResizeObserver integration** - React to browser resize events (like the graph)
 - [ ] Add event filtering (albums only, members only, etc.)
 - [ ] Sync timeline position with graph selection (click member → highlight tenure)
+- [ ] Responsive breakpoints for mobile (collapse to vertical or simplified view)
 
 #### Example: Butthole Surfers Timeline
 ```
