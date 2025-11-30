@@ -3,12 +3,19 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import cytoscape, { Core, NodeSingular, Layouts } from 'cytoscape';
 import cola from 'cytoscape-cola';
+import dagre from 'cytoscape-dagre';
 import type { ArtistGraph as ArtistGraphType, ArtistNode } from '@/types';
 
-// Register the cola layout extension
+// Register layout extensions
 if (typeof cytoscape('core', 'cola') === 'undefined') {
   cytoscape.use(cola);
 }
+if (typeof cytoscape('core', 'dagre') === 'undefined') {
+  cytoscape.use(dagre);
+}
+
+// Layout types available to users
+export type LayoutType = 'auto' | 'radial' | 'force' | 'hierarchical' | 'concentric';
 
 interface ArtistGraphProps {
   graph: ArtistGraphType;
@@ -17,6 +24,9 @@ interface ArtistGraphProps {
   selectedNodeId?: string | null;
   className?: string;
   cyRef?: React.MutableRefObject<Core | null>;
+  layoutType?: LayoutType;
+  networkDepth?: number;
+  onLayoutChange?: (layout: LayoutType) => void;
 }
 
 // Cytoscape stylesheet
@@ -174,6 +184,9 @@ export function ArtistGraph({
   selectedNodeId,
   className = '',
   cyRef: externalCyRef,
+  layoutType = 'auto',
+  networkDepth = 1,
+  onLayoutChange,
 }: ArtistGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const internalCyRef = useRef<Core | null>(null);
@@ -181,6 +194,16 @@ export function ArtistGraph({
   const layoutRef = useRef<Layouts | null>(null);
   const isDestroyedRef = useRef(false);
   const [isLayouting, setIsLayouting] = useState(false);
+  const [currentLayout, setCurrentLayout] = useState<LayoutType>(layoutType);
+
+  // Layout display names for the dropdown
+  const layoutOptions: { value: LayoutType; label: string }[] = [
+    { value: 'auto', label: 'Auto (Depth-based)' },
+    { value: 'radial', label: 'Radial Spoke' },
+    { value: 'force', label: 'Force-Directed' },
+    { value: 'hierarchical', label: 'Hierarchical' },
+    { value: 'concentric', label: 'Concentric Rings' },
+  ];
 
   // Convert our graph format to Cytoscape elements
   const convertToElements = useCallback(() => {
@@ -215,81 +238,168 @@ export function ArtistGraph({
     return [...nodes, ...edges];
   }, [graph]);
 
-  // Get cola layout options with interactive physics
-  const getLayoutOptions = useCallback((nodeCount: number, cy?: Core): cytoscape.LayoutOptions => {
-    const isLarge = nodeCount > 100;
-    const isMedium = nodeCount > 30;
+  // Calculate BFS depth from root node for each node
+  const calculateNodeDepths = useCallback((cy: Core): Map<string, number> => {
+    const depths = new Map<string, number>();
+    const rootNode = cy.$('node[root = "true"]').first();
 
-    // Get container dimensions for centering
-    const width = containerRef.current?.clientWidth || 800;
-    const height = containerRef.current?.clientHeight || 600;
-    const centerX = width / 2;
-    const centerY = height / 2;
+    if (!rootNode.length) return depths;
 
-    // Find root node for constraints
-    const rootNode = cy?.$('node[root = "true"]').first();
-    const rootId = rootNode?.id();
+    const rootId = rootNode.id();
+    depths.set(rootId, 0);
 
-    // Build constraints to fix root at center
-    const constraints: unknown[] = [];
-    if (rootId) {
-      constraints.push({
-        type: 'position',
-        node: rootId,
-        position: { x: centerX, y: centerY },
-        weight: 1, // Strong constraint
+    // BFS to calculate depths
+    const queue: string[] = [rootId];
+    const visited = new Set<string>([rootId]);
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const currentDepth = depths.get(currentId)!;
+      const currentNode = cy.$(`#${currentId}`);
+
+      // Get all connected nodes (neighbors)
+      const neighbors = currentNode.neighborhood('node');
+      neighbors.forEach((neighbor) => {
+        const neighborId = neighbor.id();
+        if (!visited.has(neighborId)) {
+          visited.add(neighborId);
+          depths.set(neighborId, currentDepth + 1);
+          queue.push(neighborId);
+        }
       });
     }
 
-    return {
-      name: 'cola',
-      animate: true,
-      refresh: 1,
-      maxSimulationTime: isLarge ? 2000 : 4000,
-      ungrabifyWhileSimulating: false,
-      fit: true, // Fit all nodes in view
-      padding: 20,
-
-      // Node spacing
-      nodeSpacing: () => isLarge ? 30 : isMedium ? 50 : 80,
-
-      // Edge length
-      edgeLength: isLarge ? 100 : isMedium ? 150 : 200,
-
-      // Flow direction - center root node
-      flow: undefined,
-
-      // Alignment constraint - none needed
-      alignment: undefined,
-
-      // Gap between nodes in same rank
-      gapInequalities: undefined,
-
-      // Center the graph
-      centerGraph: true,
-
-      // Handle disconnected components
-      handleDisconnected: true,
-
-      // Convergence threshold
-      convergenceThreshold: 0.01,
-
-      // Avoid overlap
-      avoidOverlap: true,
-
-      // Infinite simulation for interactive dragging
-      infinite: false,
-
-      // Randomize initial positions
-      randomize: false,
-
-      // Fix root node at center
-      constraints: constraints.length > 0 ? constraints : undefined,
-    } as cytoscape.LayoutOptions;
+    return depths;
   }, []);
 
+  // Determine effective layout based on 'auto' mode and network depth
+  const getEffectiveLayout = useCallback((layout: LayoutType, depth: number): Exclude<LayoutType, 'auto'> => {
+    if (layout !== 'auto') return layout;
+    // Auto mode: Force at depth 1, Radial at depth 2+
+    return depth === 1 ? 'force' : 'radial';
+  }, []);
+
+  // Get layout options for the specified layout type
+  const getLayoutOptions = useCallback((nodeCount: number, cy?: Core, layout?: LayoutType): cytoscape.LayoutOptions => {
+    const isLarge = nodeCount > 100;
+    const isMedium = nodeCount > 30;
+    const effectiveLayout = getEffectiveLayout(layout || currentLayout, networkDepth);
+    const rootNode = cy?.$('node[root = "true"]').first();
+    const rootId = rootNode?.id();
+
+    switch (effectiveLayout) {
+      case 'force':
+        // Cola force-directed layout - organic, interactive
+        return {
+          name: 'cola',
+          animate: true,
+          refresh: 1,
+          maxSimulationTime: isLarge ? 2000 : 4000,
+          ungrabifyWhileSimulating: false,
+          fit: true,
+          padding: 30,
+          nodeSpacing: () => isLarge ? 30 : isMedium ? 50 : 80,
+          edgeLength: isLarge ? 100 : isMedium ? 150 : 200,
+          centerGraph: true,
+          handleDisconnected: true,
+          convergenceThreshold: 0.01,
+          avoidOverlap: true,
+          infinite: false,
+          randomize: false,
+        } as unknown as cytoscape.LayoutOptions;
+
+      case 'hierarchical':
+        // Dagre hierarchical layout - tree structure
+        return {
+          name: 'dagre',
+          fit: true,
+          padding: 30,
+          rankDir: 'TB', // Top to bottom
+          ranker: 'network-simplex',
+          nodeSep: isLarge ? 30 : isMedium ? 50 : 70,
+          rankSep: isLarge ? 50 : isMedium ? 80 : 100,
+          edgeSep: 10,
+          animate: true,
+          animationDuration: 500,
+          animationEasing: 'ease-out',
+        } as unknown as cytoscape.LayoutOptions;
+
+      case 'concentric':
+        // Concentric layout - rings based on degree
+        const depths = cy ? calculateNodeDepths(cy) : new Map<string, number>();
+        const maxDepth = Math.max(0, ...Array.from(depths.values()));
+        return {
+          name: 'concentric',
+          fit: true,
+          padding: 30,
+          startAngle: Math.PI * 3 / 2,
+          sweep: Math.PI * 2,
+          clockwise: true,
+          equidistant: false,
+          minNodeSpacing: isLarge ? 20 : isMedium ? 40 : 60,
+          avoidOverlap: true,
+          nodeDimensionsIncludeLabels: true,
+          animate: true,
+          animationDuration: 500,
+          concentric: (node: NodeSingular) => {
+            const nodeId = node.id();
+            const depth = depths.get(nodeId) ?? maxDepth;
+            return maxDepth - depth + 1;
+          },
+          levelWidth: () => 1,
+          spacingFactor: isLarge ? 1.2 : isMedium ? 1.5 : 1.75,
+        } as unknown as cytoscape.LayoutOptions;
+
+      case 'radial':
+      default:
+        // Breadthfirst circle layout - spoke pattern
+        return {
+          name: 'breadthfirst',
+          fit: true,
+          directed: false,
+          padding: 30,
+          circle: true,
+          grid: false,
+          spacingFactor: isLarge ? 1.0 : isMedium ? 1.25 : 1.5,
+          avoidOverlap: true,
+          nodeDimensionsIncludeLabels: false,
+          roots: rootId ? `#${rootId}` : undefined,
+          animate: true,
+          animationDuration: 500,
+          animationEasing: 'ease-out',
+          maximal: false,
+        } as unknown as cytoscape.LayoutOptions;
+    }
+  }, [calculateNodeDepths, currentLayout, networkDepth, getEffectiveLayout]);
+
+  // Handle layout change from dropdown
+  const handleLayoutChange = useCallback((newLayout: LayoutType) => {
+    setCurrentLayout(newLayout);
+    onLayoutChange?.(newLayout);
+
+    // Re-run layout with the new type
+    if (cyRef.current && !isDestroyedRef.current) {
+      const cy = cyRef.current;
+      setIsLayouting(true);
+
+      if (layoutRef.current) {
+        layoutRef.current.stop();
+      }
+
+      const options = getLayoutOptions(cy.nodes().length, cy, newLayout);
+      layoutRef.current = cy.layout({
+        ...options,
+        stop: () => {
+          if (isDestroyedRef.current || cy.destroyed()) return;
+          setIsLayouting(false);
+        },
+      });
+      layoutRef.current.run();
+    }
+  }, [onLayoutChange, getLayoutOptions]);
+
   // Run layout function
-  const runLayout = useCallback((centerOnRoot = true) => {
+  const runLayout = useCallback(() => {
     if (!cyRef.current || isDestroyedRef.current) return;
 
     const cy = cyRef.current;
@@ -300,37 +410,12 @@ export function ArtistGraph({
       layoutRef.current.stop();
     }
 
-    // Get the root node and center it first
-    const rootNode = cy.$('node[root = "true"]');
-    const containerWidth = containerRef.current?.clientWidth || 800;
-    const containerHeight = containerRef.current?.clientHeight || 600;
-
-    if (centerOnRoot && rootNode.length) {
-      // Position root at center before layout and lock it
-      rootNode.unlock(); // Temporarily unlock to reposition
-      rootNode.position({
-        x: containerWidth / 2,
-        y: containerHeight / 2
-      });
-      rootNode.lock(); // Re-lock to keep at center
-    }
-
     const options = getLayoutOptions(cy.nodes().length, cy);
     layoutRef.current = cy.layout({
       ...options,
       stop: () => {
         if (isDestroyedRef.current || cy.destroyed()) return;
         setIsLayouting(false);
-        // After layout, fit all nodes in view, then center on root
-        try {
-          cy.fit(undefined, 20);
-          const root = cy.$('node[root = "true"]');
-          if (root.length) {
-            cy.center(root);
-          }
-        } catch {
-          // Ignore errors during cleanup
-        }
       },
     });
     layoutRef.current.run();
@@ -374,20 +459,7 @@ export function ArtistGraph({
 
     cyRef.current = cy;
 
-    // Position root node at center before initial layout and lock it
-    const rootNode = cy.$('node[root = "true"]');
-    if (rootNode.length && containerRef.current) {
-      const containerWidth = containerRef.current.clientWidth || 800;
-      const containerHeight = containerRef.current.clientHeight || 600;
-      rootNode.position({
-        x: containerWidth / 2,
-        y: containerHeight / 2
-      });
-      // Lock the root node so it stays at center
-      rootNode.lock();
-    }
-
-    // Run initial layout
+    // Run initial layout with concentric pattern
     setIsLayouting(true);
     const options = getLayoutOptions(cy.nodes().length, cy);
     layoutRef.current = cy.layout({
@@ -395,17 +467,6 @@ export function ArtistGraph({
       stop: () => {
         if (isDestroyedRef.current || cy.destroyed()) return;
         setIsLayouting(false);
-        // Fit all nodes in view, then center on root
-        try {
-          cy.fit(undefined, 20);
-          // Center viewport on the root node so it's visually centered
-          const root = cy.$('node[root = "true"]');
-          if (root.length) {
-            cy.center(root);
-          }
-        } catch {
-          // Ignore errors during cleanup
-        }
       },
     });
     layoutRef.current.run();
@@ -415,11 +476,7 @@ export function ArtistGraph({
       if (isDestroyedRef.current || !cyRef.current || cy.destroyed()) return;
       try {
         cy.resize();
-        cy.fit(undefined, 20);
-        const root = cy.$('node[root = "true"]');
-        if (root.length) {
-          cy.center(root);
-        }
+        cy.fit(undefined, 30);
       } catch {
         // Ignore errors during cleanup
       }
@@ -428,55 +485,6 @@ export function ArtistGraph({
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
     }
-
-    // Handle node drag - re-run layout to maintain physics
-    let dragTimeout: NodeJS.Timeout | null = null;
-
-    cy.on('drag', 'node', () => {
-      // Debounce layout re-run during drag
-      if (dragTimeout) clearTimeout(dragTimeout);
-      dragTimeout = setTimeout(() => {
-        if (!isDestroyedRef.current && cyRef.current && !cy.destroyed()) {
-          // Re-run layout but don't reset positions
-          try {
-            const newLayout = cy.layout({
-              name: 'cola',
-              animate: true,
-              fit: false,
-              randomize: false,
-              maxSimulationTime: 1000,
-              handleDisconnected: true,
-              avoidOverlap: true,
-            } as unknown as cytoscape.LayoutOptions);
-            layoutRef.current = newLayout;
-            newLayout.run();
-          } catch {
-            // Ignore errors during cleanup
-          }
-        }
-      }, 100);
-    });
-
-    cy.on('free', 'node', () => {
-      // When node is released, run a quick re-layout
-      if (!isDestroyedRef.current && cyRef.current && !cy.destroyed()) {
-        try {
-          const newLayout = cy.layout({
-            name: 'cola',
-            animate: true,
-            fit: false,
-            randomize: false,
-            maxSimulationTime: 1500,
-            handleDisconnected: true,
-            avoidOverlap: true,
-          } as unknown as cytoscape.LayoutOptions);
-          layoutRef.current = newLayout;
-          newLayout.run();
-        } catch {
-          // Ignore errors during cleanup
-        }
-      }
-    });
 
     // Node click handler
     cy.on('tap', 'node', (event) => {
@@ -510,7 +518,6 @@ export function ArtistGraph({
     return () => {
       isDestroyedRef.current = true;
       resizeObserver.disconnect();
-      if (dragTimeout) clearTimeout(dragTimeout);
       if (layoutRef.current) {
         try {
           layoutRef.current.stop();
@@ -564,7 +571,7 @@ export function ArtistGraph({
     });
 
     // Run layout with new nodes
-    runLayout(true);
+    runLayout();
   }, [graph, convertToElements, runLayout]);
 
   return (
@@ -598,10 +605,10 @@ export function ArtistGraph({
           ⛶
         </button>
         <button
-          onClick={() => runLayout(true)}
+          onClick={() => runLayout()}
           disabled={isLayouting}
           className="w-8 h-8 bg-white/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center text-gray-600 disabled:opacity-50"
-          title="Re-layout graph (center on main artist)"
+          title="Re-layout graph (spoke pattern)"
         >
           ↻
         </button>
@@ -639,11 +646,36 @@ export function ArtistGraph({
         </div>
       </div>
 
-      {/* Instructions */}
-      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-sm text-xs text-gray-600">
+      {/* Instructions and Layout Selector */}
+      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-sm text-xs text-gray-600 space-y-2">
         <p>Click node to select • Double-click to expand</p>
         <p><strong>Drag nodes</strong> - connected nodes will follow</p>
         <p>Scroll to zoom • Drag background to pan</p>
+
+        {/* Layout Selector */}
+        <div className="pt-2 border-t border-gray-200">
+          <label htmlFor="layout-select" className="block text-gray-700 font-medium mb-1">
+            Graph Layout
+          </label>
+          <select
+            id="layout-select"
+            value={currentLayout}
+            onChange={(e) => handleLayoutChange(e.target.value as LayoutType)}
+            disabled={isLayouting}
+            className="w-full px-2 py-1 text-xs border rounded bg-white text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {layoutOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {currentLayout === 'auto' && (
+            <p className="text-gray-500 mt-1 text-[10px]">
+              Force at depth 1, Radial at depth 2+
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Layout indicator */}
