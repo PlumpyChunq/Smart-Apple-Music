@@ -408,7 +408,7 @@ export function ArtistGraph({
             return maxDepth - depth + 1;
           },
           levelWidth: () => 1,
-          spacingFactor: isLarge ? 1.2 : isMedium ? 1.5 : 1.75,
+          spacingFactor: isLarge ? 0.4 : isMedium ? 0.5 : 0.6,
         } as unknown as cytoscape.LayoutOptions;
 
       case 'spoke': {
@@ -434,8 +434,8 @@ export function ArtistGraph({
         const centerX = containerWidth / 2;
         const centerY = containerHeight / 2;
 
-        // Ring spacing - larger gaps for clearer visual separation
-        const ringSpacing = isLarge ? 100 : isMedium ? 130 : 160;
+        // Ring spacing - compact layout with tighter rings
+        const ringSpacing = isLarge ? 30 : isMedium ? 40 : 50;
 
         nodesByDepth.forEach((nodeIds, depth) => {
           if (depth === 0) {

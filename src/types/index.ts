@@ -26,8 +26,10 @@ export interface ArtistNode {
     lastfm?: string;
     wikidata?: string;
     spotify?: string;
+    appleMusic?: string;         // Apple Music artist ID
   };
   imageUrl?: string;
+  albums?: AppleMusicAlbumInfo[];  // Top albums from Apple Music
   loaded?: boolean;              // Has this node been expanded?
   founding?: boolean;            // Is this a founding member? (for graph styling)
   instruments?: string[];        // Top instruments/roles (vocals, guitar, drums, etc.)
@@ -248,4 +250,20 @@ export interface PlaylistTrack {
   album: string;
   appleMusicId?: string;
   addedReason: string;
+}
+
+// ============================================================================
+// Apple Music Types
+// ============================================================================
+
+/**
+ * Simplified album info for display in artist nodes
+ */
+export interface AppleMusicAlbumInfo {
+  id: string;
+  name: string;
+  artistName: string;
+  artworkUrl?: string;           // Pre-formatted URL (not template)
+  releaseDate?: string;
+  trackCount?: number;
 }

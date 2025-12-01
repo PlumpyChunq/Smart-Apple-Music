@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ArtistSearch } from '@/components/artist-search';
 import { ArtistDetail } from '@/components/artist-detail';
 import { FavoritesRecentShows } from '@/components/favorites-recent-shows';
+import { AppleMusicAuth } from '@/components/apple-music-auth';
 import { useFavorites } from '@/lib/favorites';
 import type { ArtistNode } from '@/types';
 
@@ -15,7 +16,7 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-3">
         <header className="flex items-center mb-4">
-          <div className="w-32">
+          <div className="w-48">
             {selectedArtist && (
               <button
                 onClick={() => setSelectedArtist(null)}
@@ -33,7 +34,9 @@ export default function Home() {
               Explore artist relationships and discover musical connections
             </p>
           </div>
-          <div className="w-32" />
+          <div className="w-48 flex justify-end">
+            <AppleMusicAuth />
+          </div>
         </header>
 
         {selectedArtist ? (
@@ -65,8 +68,16 @@ export default function Home() {
             >
               MusicBrainz
             </a>
+            {' • '}
+            <a
+              href="https://music.apple.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-gray-600"
+            >
+              Apple Music
+            </a>
           </p>
-          <p className="mt-1">Graph-First MVP • Phase 1</p>
         </footer>
       </div>
     </main>

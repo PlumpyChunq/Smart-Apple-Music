@@ -10,6 +10,7 @@ interface ArtistTimelineProps {
   isLoading: boolean;
   yearRange: { min: number; max: number } | null;
   onHighlightArtists?: (artistIds: string[]) => void;
+  highlightedAlbum?: { name: string; year: number } | null;
 }
 
 const EVENT_COLORS: Record<TimelineEventType, { bg: string; border: string; text: string }> = {
@@ -52,6 +53,7 @@ export function ArtistTimeline({
   isLoading,
   yearRange,
   onHighlightArtists,
+  highlightedAlbum,
 }: ArtistTimelineProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
@@ -204,8 +206,10 @@ export function ArtistTimeline({
                   {years.map((year) => (
                     <EventColumn
                       key={year}
+                      year={year}
                       events={eventsByYear.get(year) || []}
                       onEventClick={handleEventClick}
+                      highlightedAlbum={highlightedAlbum}
                     />
                   ))}
                 </div>
@@ -260,11 +264,13 @@ export function ArtistTimeline({
 }
 
 interface EventColumnProps {
+  year: number;
   events: TimelineEvent[];
   onEventClick: (event: TimelineEvent, e: React.MouseEvent) => void;
+  highlightedAlbum?: { name: string; year: number } | null;
 }
 
-function EventColumn({ events, onEventClick }: EventColumnProps) {
+function EventColumn({ year, events, onEventClick, highlightedAlbum }: EventColumnProps) {
   const hasEvents = events.length > 0;
 
   return (
@@ -276,7 +282,17 @@ function EventColumn({ events, onEventClick }: EventColumnProps) {
       {hasEvents ? (
         <div className="relative flex gap-0.5 z-10 mb-[-3px]">
           {events.slice(0, 5).map((event) => (
-            <EventDot key={event.id} event={event} onClick={onEventClick} />
+            <EventDot
+              key={event.id}
+              event={event}
+              onClick={onEventClick}
+              isHighlighted={
+                highlightedAlbum &&
+                event.type === 'album' &&
+                event.year === highlightedAlbum.year &&
+                event.title.toLowerCase().includes(highlightedAlbum.name.toLowerCase().substring(0, 10))
+              }
+            />
           ))}
           {events.length > 5 && (
             <span className="text-[10px] text-gray-400 ml-1">+{events.length - 5}</span>
@@ -292,9 +308,10 @@ function EventColumn({ events, onEventClick }: EventColumnProps) {
 interface EventDotProps {
   event: TimelineEvent;
   onClick: (event: TimelineEvent, e: React.MouseEvent) => void;
+  isHighlighted?: boolean;
 }
 
-function EventDot({ event, onClick }: EventDotProps) {
+function EventDot({ event, onClick, isHighlighted }: EventDotProps) {
   const colors = EVENT_COLORS[event.type];
   const icon = EVENT_ICONS[event.type];
   const isAlbum = event.type === 'album';
@@ -302,7 +319,7 @@ function EventDot({ event, onClick }: EventDotProps) {
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [labelPos, setLabelPos] = useState<{ x: number; y: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | undefined>(undefined);
 
   // Continuously update label position using requestAnimationFrame
   useEffect(() => {
@@ -352,7 +369,8 @@ function EventDot({ event, onClick }: EventDotProps) {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={`w-6 h-6 rounded-full ${colors.bg} ${colors.border} border-2 flex items-center justify-center
-          hover:scale-125 transition-transform duration-75 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`}
+          hover:scale-125 transition-all duration-75 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500
+          ${isHighlighted ? 'scale-150 ring-4 ring-yellow-400 ring-offset-2 z-50' : ''}`}
         title={`${event.title} (${event.year})`}
       >
         <span className="text-xs">{icon}</span>
@@ -362,7 +380,7 @@ function EventDot({ event, onClick }: EventDotProps) {
       {isAlbum && labelPos && (
         <TooltipPortal>
           <div
-            className="fixed z-[9998] pointer-events-none"
+            className={`fixed z-[9998] pointer-events-none transition-all duration-150 ${isHighlighted ? 'scale-125' : ''}`}
             style={{
               left: labelPos.x,
               top: labelPos.y,
@@ -370,7 +388,10 @@ function EventDot({ event, onClick }: EventDotProps) {
               transformOrigin: 'bottom left',
             }}
           >
-            <span className="text-[10px] font-medium text-purple-600 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)] whitespace-nowrap">
+            <span className={`text-[10px] font-medium whitespace-nowrap transition-colors duration-150
+              ${isHighlighted
+                ? 'text-yellow-600 bg-yellow-100 px-1 py-0.5 rounded drop-shadow-lg'
+                : 'text-purple-600 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)]'}`}>
               {event.title}
             </span>
           </div>

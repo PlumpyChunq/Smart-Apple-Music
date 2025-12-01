@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useArtistRelationships } from '@/lib/musicbrainz/hooks';
+import { useEnrichedArtist } from '@/lib/apple-music';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { GraphView, LayoutType, GraphFilters, getDefaultFilters, type GraphFilterState } from '@/components/graph';
@@ -262,6 +263,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   const [layoutType, setLayoutType] = useState<LayoutType>('auto');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [graphFilters, setGraphFilters] = useState<GraphFilterState>(getDefaultFilters);
+  const [highlightedAlbum, setHighlightedAlbum] = useState<{ name: string; year: number } | null>(null);
 
   // Check if artist is favorite on mount
   useEffect(() => {
@@ -279,6 +281,10 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   }, [artist, isFav]);
 
   const { data, isLoading, error } = useArtistRelationships(artist.id);
+
+  // Enrich artist with Apple Music data (image, albums)
+  const { data: enrichedArtist } = useEnrichedArtist(artist);
+  const displayArtist = enrichedArtist || artist;
 
   // Build map of related artists for timeline
   const relatedArtistsMap = useMemo(() => {
@@ -304,6 +310,15 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
       setSelectedNodeId(artistIds[0]);
     } else {
       setSelectedNodeId(null);
+    }
+  }, []);
+
+  // Handle highlighting album from sidebar (for timeline)
+  const onHighlightAlbum = useCallback((albumName: string | null, year: number | null) => {
+    if (albumName && year) {
+      setHighlightedAlbum({ name: albumName, year });
+    } else {
+      setHighlightedAlbum(null);
     }
   }, []);
 
@@ -483,7 +498,21 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
     <div className="w-full max-w-7xl mx-auto space-y-4 pb-24">
       {/* Artist Header - Compact */}
       <div className="flex items-center justify-between bg-white p-3 rounded-lg border">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Artist Image from Apple Music */}
+          {displayArtist.imageUrl ? (
+            <img
+              src={displayArtist.imageUrl}
+              alt={displayArtist.name}
+              className="w-14 h-14 rounded-lg object-cover shadow-sm"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+          )}
           <button
             onClick={handleToggleFavorite}
             className={`text-xl transition-colors ${
@@ -694,6 +723,79 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                 </Card>
               ))}
 
+              {/* Albums - sorted by year, clickable */}
+              {displayArtist.albums && displayArtist.albums.length > 0 && (
+                <Card className="text-sm">
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-base">
+                      Albums
+                      <span className="ml-1 text-xs font-normal text-gray-500">
+                        ({displayArtist.albums.length})
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="py-2 px-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      {[...displayArtist.albums]
+                        .sort((a, b) => {
+                          const yearA = a.releaseDate ? parseInt(a.releaseDate.substring(0, 4)) : 0;
+                          const yearB = b.releaseDate ? parseInt(b.releaseDate.substring(0, 4)) : 0;
+                          return yearA - yearB; // Oldest first
+                        })
+                        .map((album) => {
+                          // Generate music service URL - YouTube Music as free fallback
+                          const musicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(`${displayArtist.name} ${album.name}`)}`;
+                          const albumYear = album.releaseDate ? parseInt(album.releaseDate.substring(0, 4)) : null;
+
+                          return (
+                            <a
+                              key={album.id}
+                              href={musicUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-center group cursor-pointer block"
+                              onMouseEnter={() => {
+                                // Highlight this album in the timeline
+                                if (albumYear && onHighlightAlbum) {
+                                  onHighlightAlbum(album.name, albumYear);
+                                }
+                              }}
+                              onMouseLeave={() => {
+                                // Clear timeline highlight
+                                if (onHighlightAlbum) {
+                                  onHighlightAlbum(null, null);
+                                }
+                              }}
+                            >
+                              {album.artworkUrl ? (
+                                <img
+                                  src={album.artworkUrl}
+                                  alt={album.name}
+                                  className="w-full aspect-square rounded shadow-sm object-cover group-hover:ring-2 group-hover:ring-blue-400 transition-all"
+                                />
+                              ) : (
+                                <div className="w-full aspect-square rounded bg-gray-100 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition-all">
+                                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                  </svg>
+                                </div>
+                              )}
+                              <p className="text-xs mt-1 truncate group-hover:text-blue-600" title={album.name}>
+                                {album.name}
+                              </p>
+                              {album.releaseDate && (
+                                <p className="text-xs text-gray-400">
+                                  {album.releaseDate.substring(0, 4)}
+                                </p>
+                              )}
+                            </a>
+                          );
+                        })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Recent Shows at the bottom */}
               <RecentConcerts artistName={artist.name} maxDisplay={5} />
             </div>
@@ -707,6 +809,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
         isLoading={isTimelineLoading}
         yearRange={yearRange}
         onHighlightArtists={handleTimelineHighlight}
+        highlightedAlbum={highlightedAlbum}
       />
     </div>
   );
