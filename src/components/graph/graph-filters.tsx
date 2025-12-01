@@ -154,6 +154,13 @@ export function GraphFilters({
         >
           {filters.temporalFilter === 'current' ? 'Current' : 'All Time'}
         </button>
+        <button
+          onClick={handleSelectAll}
+          className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          title="Show all relationship types"
+        >
+          All
+        </button>
         {isModified && (
           <button
             onClick={handleReset}
