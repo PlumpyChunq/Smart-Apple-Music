@@ -274,7 +274,8 @@ export function ArtistGraph({
   onNodeExpandRef.current = onNodeExpand;
   onNodeHoverRef.current = onNodeHover;
 
-  // Layout display names for the dropdown
+  // Layout display names for the dropdown (kept for potential future UI)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const layoutOptions: { value: LayoutType; label: string }[] = [
     { value: 'auto', label: 'Auto (Depth-based)' },
     { value: 'spoke', label: 'Spoke (Hub & Rings)' },
@@ -884,6 +885,37 @@ export function ArtistGraph({
           edge.addClass('filtered');
           edge.style('display', 'none');
         }
+      });
+    }
+
+    // Filter edges by year range (if set)
+    if (filters.yearRange) {
+      const { min: filterMin, max: filterMax } = filters.yearRange;
+      cy.edges().forEach(edge => {
+        if (edge.hasClass('filtered')) return; // Already filtered out
+
+        const edgeData = graph.edges.find(e => e.data.id === edge.id());
+        if (edgeData?.data.period) {
+          const period = edgeData.data.period;
+          // Extract years from date strings (could be "YYYY" or "YYYY-MM-DD")
+          const beginYear = period.begin ? parseInt(period.begin.substring(0, 4)) : null;
+          const endYear = period.end ? parseInt(period.end.substring(0, 4)) : null;
+
+          // If we have a begin date, check if it's after the filter range
+          if (beginYear && beginYear > filterMax) {
+            edge.addClass('filtered');
+            edge.style('display', 'none');
+            return;
+          }
+
+          // If we have an end date, check if it's before the filter range
+          if (endYear && endYear < filterMin) {
+            edge.addClass('filtered');
+            edge.style('display', 'none');
+            return;
+          }
+        }
+        // If no period data, keep the edge visible (we don't know when it was)
       });
     }
 

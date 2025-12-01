@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useArtistRelationships } from '@/lib/musicbrainz/hooks';
 import { useEnrichedArtist } from '@/lib/apple-music';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { GraphView, LayoutType, GraphFilters, getDefaultFilters, type GraphFilterState } from '@/components/graph';
 import { addToFavorites, removeFromFavorites, isFavorite } from '@/components/artist-search';
@@ -252,9 +252,11 @@ function mergeGraphData(
   return { nodes: updatedNodes, edges: updatedEdges };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- onBack kept for future back navigation
 export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailProps) {
   const [expandedGraph, setExpandedGraph] = useState<ArtistGraph | null>(null);
   const [isExpanding, setIsExpanding] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used by setExpandingNodeId for future loading indicator
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
   const [autoExpandComplete, setAutoExpandComplete] = useState(false);
   const [expansionDepth, setExpansionDepth] = useState<ExpansionDepth>(1);
@@ -625,6 +627,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
             filters={graphFilters}
             onFiltersChange={setGraphFilters}
             availableTypes={availableRelTypes as import('@/types').RelationshipType[]}
+            availableYearRange={yearRange}
             compact
           />
         </div>
@@ -703,7 +706,22 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                   data.relatedArtists,
                   data.artist.activeYears?.begin
                 )
-              ).map(([type, items]) => (
+              )
+              // Sort groups: Members first, then Founders, then Collaborations, then others
+              .sort(([typeA], [typeB]) => {
+                const priority: Record<string, number> = {
+                  'member_of': 0,
+                  'founder_of': 1,
+                  'collaboration': 2,
+                  'producer': 3,
+                  'touring_member': 4,
+                  'side_project': 5,
+                };
+                const priorityA = priority[typeA] ?? 99;
+                const priorityB = priority[typeB] ?? 99;
+                return priorityA - priorityB;
+              })
+              .map(([type, items]) => (
                 <Card key={type} className="text-sm">
                   <CardHeader className="py-2 px-3">
                     <CardTitle className="text-base">
@@ -715,49 +733,63 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                   </CardHeader>
                   <CardContent className="py-2 px-3">
                     <div className="space-y-1">
-                      {items.map(({ relationship, artist: relatedArtist, isFoundingMember: founding, isCurrent, tenure }) => (
-                        <div
-                          key={relationship.id}
-                          className={`flex items-center justify-between py-1 px-2 rounded cursor-pointer transition-colors ${
-                            selectedNodeId === relatedArtist.id
-                              ? 'bg-orange-100 hover:bg-orange-200'
-                              : hoveredArtistId === relatedArtist.id
-                              ? 'bg-purple-50'
-                              : 'hover:bg-gray-50'
-                          }`}
-                          onClick={() => handleSidebarNodeSelect(relatedArtist)}
-                          onDoubleClick={() => handleSidebarNodeNavigate(relatedArtist)}
-                          onMouseEnter={() => setHoveredArtistId(relatedArtist.id)}
-                          onMouseLeave={() => setHoveredArtistId(null)}
-                          title="Click to highlight in graph, double-click to navigate"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1 flex-wrap">
-                              <span className="font-medium truncate">{relatedArtist.name}</span>
-                              {founding && (
-                                <span className="px-1 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">
-                                  F
-                                </span>
-                              )}
-                              {isCurrent && (
-                                <span className="px-1 py-0.5 bg-green-100 text-green-800 rounded text-xs">
-                                  C
-                                </span>
-                              )}
+                      {items.map(({ relationship, artist: relatedArtist, isFoundingMember: founding, isCurrent, tenure }) => {
+                        // Check if this relationship is within the year filter range
+                        const isInYearRange = !graphFilters.yearRange || (() => {
+                          const filterMin = graphFilters.yearRange!.min;
+                          const filterMax = graphFilters.yearRange!.max;
+                          const beginYear = relationship.period?.begin ? parseInt(relationship.period.begin.substring(0, 4)) : null;
+                          const endYear = relationship.period?.end ? parseInt(relationship.period.end.substring(0, 4)) : null;
+                          // In range if: started before filter ends AND (no end OR ended after filter starts)
+                          if (beginYear && beginYear > filterMax) return false;
+                          if (endYear && endYear < filterMin) return false;
+                          return true;
+                        })();
+
+                        return (
+                          <div
+                            key={relationship.id}
+                            className={`flex items-center justify-between py-1 px-2 rounded cursor-pointer transition-all ${
+                              selectedNodeId === relatedArtist.id
+                                ? 'bg-orange-100 hover:bg-orange-200'
+                                : hoveredArtistId === relatedArtist.id
+                                ? 'bg-purple-50'
+                                : 'hover:bg-gray-50'
+                            } ${isInYearRange ? '' : 'opacity-30'}`}
+                            onClick={() => handleSidebarNodeSelect(relatedArtist)}
+                            onDoubleClick={() => handleSidebarNodeNavigate(relatedArtist)}
+                            onMouseEnter={() => setHoveredArtistId(relatedArtist.id)}
+                            onMouseLeave={() => setHoveredArtistId(null)}
+                            title="Click to highlight in graph, double-click to navigate"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="font-medium truncate">{relatedArtist.name}</span>
+                                {founding && (
+                                  <span className="px-1 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">
+                                    F
+                                  </span>
+                                )}
+                                {isCurrent && (
+                                  <span className="px-1 py-0.5 bg-green-100 text-green-800 rounded text-xs">
+                                    C
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-400 truncate">
+                                {relationship.attributes && extractInstruments(relationship.attributes).length > 0
+                                  ? extractInstruments(relationship.attributes).join(', ')
+                                  : '—'}
+                              </p>
                             </div>
-                            <p className="text-xs text-gray-400 truncate">
-                              {relationship.attributes && extractInstruments(relationship.attributes).length > 0
-                                ? extractInstruments(relationship.attributes).join(', ')
-                                : '—'}
-                            </p>
+                            {tenure && (
+                              <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
+                                {tenure}
+                              </span>
+                            )}
                           </div>
-                          {tenure && (
-                            <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
-                              {tenure}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -787,13 +819,17 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                           const musicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(`${displayArtist.name} ${album.name}`)}`;
                           const albumYear = album.releaseDate ? parseInt(album.releaseDate.substring(0, 4)) : null;
 
+                          // Check if album is within year filter range
+                          const isAlbumInRange = !graphFilters.yearRange || !albumYear ||
+                            (albumYear >= graphFilters.yearRange.min && albumYear <= graphFilters.yearRange.max);
+
                           return (
                             <a
                               key={album.id}
                               href={musicUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-center group cursor-pointer block"
+                              className={`text-center group cursor-pointer block transition-opacity ${isAlbumInRange ? '' : 'opacity-30'}`}
                               onMouseEnter={() => {
                                 // Highlight this album in the timeline
                                 if (albumYear && onHighlightAlbum) {
@@ -854,6 +890,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
         highlightedAlbum={highlightedAlbum}
         highlightedArtistIds={hoveredArtistId ? [hoveredArtistId] : undefined}
         onHeightChange={setTimelineHeight}
+        filterYearRange={graphFilters.yearRange}
       />
     </div>
   );

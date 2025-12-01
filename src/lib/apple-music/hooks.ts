@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future Apple Music mutations
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { initializeMusicKit, getMusicKitInstance } from './config';
 import {
@@ -11,6 +12,7 @@ import {
   getCatalogArtistAlbums,
 } from './client';
 import { enrichArtistWithAppleMusic } from './enrichment';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- MusicKitInstance kept for future use
 import type { AppleMusicArtist, AppleMusicAlbum, MusicKitInstance } from './types';
 import type { ArtistNode } from '@/types';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import { useRef, useState, useCallback, useMemo, useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import type { TimelineEvent, TimelineEventType } from '@/types';
 import { TimelineEventPopup } from './timeline-event-popup';
@@ -16,6 +16,8 @@ interface ArtistTimelineProps {
   highlightedAlbum?: { name: string; year: number } | null;
   highlightedArtistIds?: string[];
   onHeightChange?: (height: number) => void;
+  /** Filter year range from graph filters - shows visual overlay */
+  filterYearRange?: { min: number; max: number } | null;
 }
 
 export const TIMELINE_MIN_HEIGHT = 80;
@@ -40,15 +42,19 @@ const EVENT_ICONS: Record<TimelineEventType, string> = {
   member_leave: '➖',
 };
 
+// Subscribe function that never calls callback (no external store changes)
+const emptySubscribe = () => () => {};
+
 // Portal component for tooltip that escapes overflow:hidden
 function TooltipPortal({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false);
+  // useSyncExternalStore is the recommended way to handle SSR hydration checks
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,  // Client value
+    () => false  // Server value
+  );
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
+  if (!isClient) return null;
 
   return createPortal(children, document.body);
 }
@@ -62,6 +68,7 @@ export function ArtistTimeline({
   highlightedAlbum,
   highlightedArtistIds,
   onHeightChange,
+  filterYearRange,
 }: ArtistTimelineProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
@@ -225,6 +232,9 @@ export function ArtistTimeline({
                       onEventHover={onHoverArtists}
                       highlightedAlbum={highlightedAlbum}
                       highlightedArtistIds={highlightedArtistIds}
+                      isInFilterRange={!filterYearRange || (year >= filterYearRange.min && year <= filterYearRange.max)}
+                      isFilterBoundaryStart={filterYearRange?.min === year}
+                      isFilterBoundaryEnd={filterYearRange?.max === year}
                     />
                   ))}
                 </div>
@@ -251,9 +261,26 @@ export function ArtistTimeline({
                 <div className="flex min-w-max px-4 gap-0 py-1">
                   {years.map((year) => {
                     const hasEvents = eventsByYear.has(year);
+                    const isInFilterRange = !filterYearRange || (year >= filterYearRange.min && year <= filterYearRange.max);
+                    const isBoundaryStart = filterYearRange?.min === year;
+                    const isBoundaryEnd = filterYearRange?.max === year;
+                    const isBoundary = isBoundaryStart || isBoundaryEnd;
                     return (
-                      <div key={year} className="min-w-[60px] text-center">
-                        <span className={`text-xs font-medium ${hasEvents ? 'text-gray-700' : 'text-gray-300'}`}>
+                      <div key={year} className={`min-w-[60px] text-center transition-opacity relative ${isInFilterRange ? '' : 'opacity-30'}`}>
+                        {/* Boundary line extending into year axis */}
+                        {isBoundaryStart && (
+                          <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-400/50" />
+                        )}
+                        {isBoundaryEnd && (
+                          <div className="absolute right-0 top-0 bottom-0 w-px bg-blue-400/50" />
+                        )}
+                        <span className={`text-xs ${
+                          isBoundary
+                            ? 'font-bold text-blue-600'
+                            : isInFilterRange
+                              ? hasEvents ? 'font-medium text-gray-700' : 'font-medium text-gray-300'
+                              : 'font-medium text-gray-400'
+                        }`}>
                           {year}
                         </span>
                       </div>
@@ -285,15 +312,27 @@ interface EventColumnProps {
   onEventHover?: (artistIds: string[]) => void;
   highlightedAlbum?: { name: string; year: number } | null;
   highlightedArtistIds?: string[];
+  isInFilterRange: boolean;
+  isFilterBoundaryStart?: boolean;
+  isFilterBoundaryEnd?: boolean;
 }
 
-function EventColumn({ year, events, onEventClick, onEventHover, highlightedAlbum, highlightedArtistIds }: EventColumnProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- year kept in props for potential future use
+function EventColumn({ year, events, onEventClick, onEventHover, highlightedAlbum, highlightedArtistIds, isInFilterRange, isFilterBoundaryStart, isFilterBoundaryEnd }: EventColumnProps) {
   const hasEvents = events.length > 0;
 
   return (
-    <div className="flex flex-col items-center justify-end min-w-[60px] relative">
+    <div className={`flex flex-col items-center justify-end min-w-[60px] relative transition-opacity ${isInFilterRange ? '' : 'opacity-30'}`}>
+      {/* Filter boundary line - start */}
+      {isFilterBoundaryStart && (
+        <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-400/50 z-20" />
+      )}
+      {/* Filter boundary line - end */}
+      {isFilterBoundaryEnd && (
+        <div className="absolute right-0 top-0 bottom-0 w-px bg-blue-400/50 z-20" />
+      )}
       {/* Track line */}
-      <div className="absolute left-0 right-0 h-0.5 bg-gray-200 bottom-0" />
+      <div className={`absolute left-0 right-0 h-0.5 bottom-0 ${isInFilterRange ? 'bg-gray-200' : 'bg-gray-300'}`} />
 
       {/* Events */}
       {hasEvents ? (

@@ -262,16 +262,32 @@ function mapRelationToEdge(
 ): ArtistRelationship | null {
   if (!relation.artist) return null;
 
+  // Relationship types to explicitly skip (not meaningful artistic connections)
+  const skipTypes = new Set([
+    'tribute',           // Tribute bands (e.g., "The Australian Pink Floyd Show")
+    'is person',         // Identity relationships
+    'named after',       // Named after relationships
+  ]);
+
+  const relationType = relation.type.toLowerCase();
+  if (skipTypes.has(relationType)) {
+    return null;
+  }
+
   const typeMap: Record<string, ArtistRelationship['type']> = {
     'member of band': 'member_of',
     'founder': 'founder_of',
     'collaboration': 'collaboration',
+    'vocal': 'collaboration',
+    'instrument': 'collaboration',
     'producer': 'producer',
     'influenced by': 'influenced_by',
+    'subgroup': 'side_project',
+    'supporting musician': 'touring_member',
     // Add more mappings as needed
   };
 
-  const mappedType = typeMap[relation.type.toLowerCase()] || 'collaboration';
+  const mappedType = typeMap[relationType] || 'collaboration';
 
   // Determine source and target based on direction
   const [source, target] = relation.direction === 'forward'

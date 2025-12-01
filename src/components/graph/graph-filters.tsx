@@ -1,18 +1,20 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import type { RelationshipType } from '@/types';
 
 export interface GraphFilterState {
   relationshipTypes: Set<RelationshipType>;
   temporalFilter: 'all' | 'current';
   nodeTypes: Set<'person' | 'group'>;
+  yearRange: { min: number; max: number } | null;  // null = show all years
 }
 
 interface GraphFiltersProps {
   filters: GraphFilterState;
   onFiltersChange: (filters: GraphFilterState) => void;
   availableTypes?: RelationshipType[];
+  availableYearRange?: { min: number; max: number } | null;
   compact?: boolean;
 }
 
@@ -42,6 +44,7 @@ export function getDefaultFilters(): GraphFilterState {
     relationshipTypes: defaultTypes,
     temporalFilter: 'all',
     nodeTypes: new Set(['person', 'group']),
+    yearRange: null,  // null = show all years (no filtering)
   };
 }
 
@@ -49,6 +52,7 @@ export function GraphFilters({
   filters,
   onFiltersChange,
   availableTypes,
+  availableYearRange,
   compact = false,
 }: GraphFiltersProps) {
   // Filter to only show types that exist in the graph
@@ -101,6 +105,23 @@ export function GraphFilters({
     });
   };
 
+  const handleYearRangeChange = (min: number, max: number) => {
+    onFiltersChange({
+      ...filters,
+      yearRange: { min, max },
+    });
+  };
+
+  const handleClearYearRange = () => {
+    onFiltersChange({
+      ...filters,
+      yearRange: null,
+    });
+  };
+
+  // Check if year filter is active
+  const isYearFilterActive = filters.yearRange !== null;
+
   if (compact) {
     const handleReset = () => {
       onFiltersChange(getDefaultFilters());
@@ -111,71 +132,97 @@ export function GraphFilters({
     const isModified =
       filters.temporalFilter !== defaults.temporalFilter ||
       filters.relationshipTypes.size !== defaults.relationshipTypes.size ||
-      ![...filters.relationshipTypes].every(t => defaults.relationshipTypes.has(t));
+      ![...filters.relationshipTypes].every(t => defaults.relationshipTypes.has(t)) ||
+      filters.yearRange !== null;
 
     return (
-      <div className="flex items-center gap-1 flex-wrap text-[10px]">
-        {visibleTypes.map((type) => {
-          const config = RELATIONSHIP_CONFIG[type];
-          const isActive = filters.relationshipTypes.has(type);
-          return (
-            <button
-              key={type}
-              onClick={() => handleRelTypeToggle(type)}
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${
-                isActive
-                  ? 'border-current'
-                  : 'border-transparent opacity-30 hover:opacity-60'
-              }`}
-              style={isActive ? {
-                backgroundColor: `${config.color}20`,
-                borderColor: config.color,
-                color: config.color,
-              } : undefined}
-              title={`${isActive ? 'Hide' : 'Show'} ${config.label} relationships`}
-            >
-              <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: config.color }}
-              />
-              <span style={isActive ? { color: '#374151' } : undefined}>{config.label}</span>
-            </button>
-          );
-        })}
-        <span className="text-gray-200">|</span>
-        <button
-          onClick={() => handleTemporalChange(filters.temporalFilter === 'all' ? 'current' : 'all')}
-          className={`px-1.5 py-0.5 rounded border transition-all ${
-            filters.temporalFilter === 'current'
-              ? 'border-green-400 bg-green-100 text-green-700'
-              : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-100'
-          }`}
-          title={filters.temporalFilter === 'current' ? 'Showing current members only' : 'Showing all members (past + present)'}
-        >
-          {filters.temporalFilter === 'current' ? 'Current' : 'All Time'}
-        </button>
-        <button
-          onClick={handleSelectAll}
-          className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          title="Show all relationship types"
-        >
-          All
-        </button>
-        <button
-          onClick={handleSelectNone}
-          className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          title="Clear all filters (keeps only Member)"
-        >
-          Clear
-        </button>
-        {isModified && (
+      <div className="space-y-2">
+        <div className="flex items-center gap-1 flex-wrap text-[10px]">
+          {visibleTypes.map((type) => {
+            const config = RELATIONSHIP_CONFIG[type];
+            const isActive = filters.relationshipTypes.has(type);
+            return (
+              <button
+                key={type}
+                onClick={() => handleRelTypeToggle(type)}
+                className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${
+                  isActive
+                    ? 'border-current'
+                    : 'border-transparent opacity-30 hover:opacity-60'
+                }`}
+                style={isActive ? {
+                  backgroundColor: `${config.color}20`,
+                  borderColor: config.color,
+                  color: config.color,
+                } : undefined}
+                title={`${isActive ? 'Hide' : 'Show'} ${config.label} relationships`}
+              >
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: config.color }}
+                />
+                <span style={isActive ? { color: '#374151' } : undefined}>{config.label}</span>
+              </button>
+            );
+          })}
+          <span className="text-gray-200">|</span>
           <button
-            onClick={handleReset}
-            className="px-1.5 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-            title="Reset filters to defaults"
+            onClick={() => handleTemporalChange(filters.temporalFilter === 'all' ? 'current' : 'all')}
+            className={`px-1.5 py-0.5 rounded border transition-all ${
+              filters.temporalFilter === 'current'
+                ? 'border-green-400 bg-green-100 text-green-700'
+                : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-100'
+            }`}
+            title={filters.temporalFilter === 'current' ? 'Showing current members only' : 'Showing all members (past + present)'}
           >
-            Reset
+            {filters.temporalFilter === 'current' ? 'Current' : 'All Time'}
           </button>
+          <button
+            onClick={handleSelectAll}
+            className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            title="Show all relationship types"
+          >
+            All
+          </button>
+          <button
+            onClick={handleSelectNone}
+            className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            title="Clear all filters (keeps only Member)"
+          >
+            Clear
+          </button>
+          {isModified && (
+            <button
+              onClick={handleReset}
+              className="px-1.5 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+              title="Reset filters to defaults"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+
+        {/* Year Range Slider */}
+        {availableYearRange && (
+          <div className="flex items-center gap-2 text-[10px]">
+            <span className="text-gray-500 shrink-0">Year:</span>
+            <YearRangeSlider
+              min={availableYearRange.min}
+              max={availableYearRange.max}
+              value={filters.yearRange || availableYearRange}
+              onChange={handleYearRangeChange}
+              isActive={isYearFilterActive}
+            />
+            {isYearFilterActive && (
+              <button
+                onClick={handleClearYearRange}
+                className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                title="Show all years"
+              >
+                All Years
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -327,6 +374,166 @@ export function GraphFilters({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Year Range Slider Component
+// ============================================================================
+
+interface YearRangeSliderProps {
+  min: number;
+  max: number;
+  value: { min: number; max: number };
+  onChange: (min: number, max: number) => void;
+  isActive: boolean;
+}
+
+function YearRangeSlider({ min, max, value, onChange, isActive }: YearRangeSliderProps) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState<'min' | 'max' | 'range' | null>(null);
+  const dragStartRef = useRef<{ clientX: number; min: number; max: number } | null>(null);
+
+  const totalRange = max - min;
+  const windowSize = value.max - value.min;
+  const minPercent = totalRange > 0 ? ((value.min - min) / totalRange) * 100 : 0;
+  const maxPercent = totalRange > 0 ? ((value.max - min) / totalRange) * 100 : 100;
+
+  const getYearFromPosition = useCallback((clientX: number) => {
+    if (!trackRef.current) return min;
+    const rect = trackRef.current.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return Math.round(min + percent * totalRange);
+  }, [min, totalRange]);
+
+  const handleMouseDown = useCallback((handle: 'min' | 'max' | 'range') => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(handle);
+    dragStartRef.current = { clientX: e.clientX, min: value.min, max: value.max };
+  }, [value.min, value.max]);
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (dragging === 'range' && dragStartRef.current) {
+        // Calculate how many years to shift based on mouse movement
+        if (!trackRef.current) return;
+        const rect = trackRef.current.getBoundingClientRect();
+        const pixelsPerYear = rect.width / totalRange;
+        const deltaPixels = e.clientX - dragStartRef.current.clientX;
+        const deltaYears = Math.round(deltaPixels / pixelsPerYear);
+
+        let newMin = dragStartRef.current.min + deltaYears;
+        let newMax = dragStartRef.current.max + deltaYears;
+
+        // Clamp to bounds
+        if (newMin < min) {
+          newMin = min;
+          newMax = min + windowSize;
+        }
+        if (newMax > max) {
+          newMax = max;
+          newMin = max - windowSize;
+        }
+
+        onChange(newMin, newMax);
+      } else {
+        const year = getYearFromPosition(e.clientX);
+        if (dragging === 'min') {
+          onChange(Math.min(year, value.max - 1), value.max);
+        } else if (dragging === 'max') {
+          onChange(value.min, Math.max(year, value.min + 1));
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDragging(null);
+      dragStartRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragging, value, onChange, getYearFromPosition, min, max, totalRange, windowSize]);
+
+  // Handle click on track to jump
+  const handleTrackClick = useCallback((e: React.MouseEvent) => {
+    if (dragging) return;
+    const year = getYearFromPosition(e.clientX);
+    // Move the closest handle
+    const distToMin = Math.abs(year - value.min);
+    const distToMax = Math.abs(year - value.max);
+    if (distToMin < distToMax) {
+      onChange(Math.min(year, value.max - 1), value.max);
+    } else {
+      onChange(value.min, Math.max(year, value.min + 1));
+    }
+  }, [dragging, value, onChange, getYearFromPosition]);
+
+  return (
+    <div className="flex items-center gap-2 flex-1 min-w-0">
+      <span className={`text-[10px] font-medium tabular-nums ${isActive ? 'text-blue-600' : 'text-gray-500'}`}>
+        {value.min}
+      </span>
+      <div
+        ref={trackRef}
+        className="relative flex-1 h-5 cursor-pointer"
+        onClick={handleTrackClick}
+      >
+        {/* Background track */}
+        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 bg-gray-200 rounded-full" />
+
+        {/* Active range - draggable middle bar */}
+        <div
+          className={`absolute top-1/2 -translate-y-1/2 h-2.5 rounded-full transition-colors cursor-grab ${
+            dragging === 'range' ? 'cursor-grabbing' : ''
+          } ${isActive ? 'bg-blue-400 hover:bg-blue-500' : 'bg-gray-300 hover:bg-gray-400'}`}
+          style={{
+            left: `${minPercent}%`,
+            right: `${100 - maxPercent}%`,
+          }}
+          onMouseDown={handleMouseDown('range')}
+          title="Drag to move the entire range"
+        >
+          {/* Year span label on the bar */}
+          {isActive && windowSize >= 3 && (
+            <span className="absolute inset-0 flex items-center justify-center text-[8px] font-medium text-white/90 pointer-events-none select-none">
+              {windowSize}yr
+            </span>
+          )}
+        </div>
+
+        {/* Min handle */}
+        <div
+          className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 cursor-ew-resize transition-all z-10 ${
+            dragging === 'min' ? 'scale-125' : 'hover:scale-110'
+          } ${isActive ? 'bg-blue-500 border-blue-600' : 'bg-white border-gray-400'}`}
+          style={{ left: `${minPercent}%` }}
+          onMouseDown={handleMouseDown('min')}
+          title="Drag to adjust start year"
+        />
+
+        {/* Max handle */}
+        <div
+          className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 cursor-ew-resize transition-all z-10 ${
+            dragging === 'max' ? 'scale-125' : 'hover:scale-110'
+          } ${isActive ? 'bg-blue-500 border-blue-600' : 'bg-white border-gray-400'}`}
+          style={{ left: `${maxPercent}%` }}
+          onMouseDown={handleMouseDown('max')}
+          title="Drag to adjust end year"
+        />
+      </div>
+      <span className={`text-[10px] font-medium tabular-nums ${isActive ? 'text-blue-600' : 'text-gray-500'}`}>
+        {value.max}
+      </span>
     </div>
   );
 }

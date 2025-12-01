@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- getMusicKitInstance kept for future use
 import { initializeMusicKit, getMusicKitInstance } from './config';
 import { cacheGet, cacheSet, CacheTTL } from '@/lib/cache';
 import type {
@@ -6,7 +7,6 @@ import type {
   LibraryArtistsResponse,
   LibraryAlbumsResponse,
   CatalogSearchResponse,
-  formatArtworkUrl,
 } from './types';
 
 export { formatArtworkUrl } from './types';

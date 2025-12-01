@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Icons for future Apple Music UI
 import { Music, LogOut, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Apple Music hooks (future feature)
 import { useAppleMusicAuth, useTopLibraryArtists } from '@/lib/apple-music';
 import { useFavorites } from '@/lib/favorites/hooks';
 import { searchArtists } from '@/lib/musicbrainz/client';

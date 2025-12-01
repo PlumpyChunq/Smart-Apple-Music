@@ -26,8 +26,8 @@ export interface SetlistEvent {
   lineup: string[];
 }
 
-// Keep the old interface name for compatibility
-export interface BandsintownEvent extends SetlistEvent {}
+// Keep the old type name for compatibility
+export type BandsintownEvent = SetlistEvent;
 
 export interface Concert {
   id: string;
