@@ -287,16 +287,11 @@ export function ArtistGraph({
   // Convert our graph format to Cytoscape elements
   const convertToElements = useCallback(() => {
     const nodes = graph.nodes.map((node, index) => {
-      // Build label with instruments if available
-      const instruments = node.data.instruments?.slice(0, 3).join(', ') || '';
-      const label = instruments ? `${node.data.name}\n${instruments}` : node.data.name;
-
       return {
         data: {
           id: node.data.id,
           name: node.data.name,
-          label: label,
-          instruments: instruments,
+          label: node.data.name,
           type: node.data.type,
           loaded: node.data.loaded ? 'true' : 'false',
           founding: node.data.founding ? 'true' : 'false',

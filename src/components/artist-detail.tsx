@@ -745,11 +745,11 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                                 </span>
                               )}
                             </div>
-                            {relationship.attributes && relationship.attributes.length > 0 && (
-                              <p className="text-xs text-gray-500 truncate">
-                                {extractInstruments(relationship.attributes).join(', ')}
-                              </p>
-                            )}
+                            <p className="text-xs text-gray-400 truncate">
+                              {relationship.attributes && extractInstruments(relationship.attributes).length > 0
+                                ? extractInstruments(relationship.attributes).join(', ')
+                                : '—'}
+                            </p>
                           </div>
                           {tenure && (
                             <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
