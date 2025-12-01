@@ -16,6 +16,7 @@ const EVENT_LABELS: Record<TimelineEventType, string> = {
   disbanded: 'Disbanded',
   member_join: 'Member Joined',
   member_leave: 'Member Left',
+  member_death: 'Passed Away',
 };
 
 const EVENT_COLORS: Record<TimelineEventType, string> = {
@@ -25,6 +26,7 @@ const EVENT_COLORS: Record<TimelineEventType, string> = {
   disbanded: 'text-red-600',
   member_join: 'text-emerald-600',
   member_leave: 'text-orange-600',
+  member_death: 'text-gray-600',
 };
 
 export function TimelineEventPopup({ event, position, onClose }: TimelineEventPopupProps) {

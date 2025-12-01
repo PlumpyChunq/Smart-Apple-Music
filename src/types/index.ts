@@ -164,7 +164,8 @@ export type TimelineEventType =
   | 'formation'      // Band/group formed
   | 'disbanded'      // Band/group disbanded
   | 'member_join'    // Member joined the group
-  | 'member_leave';  // Member left the group
+  | 'member_leave'   // Member left the group
+  | 'member_death';  // Member passed away
 
 /**
  * A single event on the artist timeline

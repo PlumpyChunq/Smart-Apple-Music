@@ -131,6 +131,25 @@ export async function getArtist(mbid: string): Promise<ArtistNode> {
 }
 
 /**
+ * Get just the life-span (birth/death or active years) for an artist
+ * Used to enrich member data with death dates
+ */
+export async function getArtistLifeSpan(mbid: string): Promise<{ begin?: string; end?: string | null } | undefined> {
+  try {
+    const artist = await mbFetch<MusicBrainzArtist>(`/artist/${mbid}`, {});
+    if (artist['life-span']) {
+      return {
+        begin: artist['life-span'].begin,
+        end: artist['life-span'].ended ? artist['life-span'].end : null,
+      };
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Get artist relationships (band members, collaborations, etc.)
  */
 export async function getArtistRelationships(mbid: string): Promise<{

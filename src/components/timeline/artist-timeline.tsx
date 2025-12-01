@@ -13,6 +13,8 @@ interface ArtistTimelineProps {
   onHighlightArtists?: (artistIds: string[]) => void;
   /** Called when hovering over a timeline event (for bi-directional highlighting) */
   onHoverArtists?: (artistIds: string[]) => void;
+  /** Called when hovering over an album event (for bi-directional highlighting with sidebar) */
+  onHoverAlbum?: (albumName: string | null, year: number | null) => void;
   highlightedAlbum?: { name: string; year: number } | null;
   highlightedArtistIds?: string[];
   onHeightChange?: (height: number) => void;
@@ -31,6 +33,7 @@ const EVENT_COLORS: Record<TimelineEventType, { bg: string; border: string; text
   disbanded: { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-700' },
   member_join: { bg: 'bg-emerald-100', border: 'border-emerald-400', text: 'text-emerald-700' },
   member_leave: { bg: 'bg-orange-100', border: 'border-orange-400', text: 'text-orange-700' },
+  member_death: { bg: 'bg-gray-200', border: 'border-gray-500', text: 'text-gray-700' },
 };
 
 const EVENT_ICONS: Record<TimelineEventType, string> = {
@@ -40,6 +43,7 @@ const EVENT_ICONS: Record<TimelineEventType, string> = {
   disbanded: '🔚',
   member_join: '➕',
   member_leave: '➖',
+  member_death: '☠️',
 };
 
 // Subscribe function that never calls callback (no external store changes)
@@ -65,6 +69,7 @@ export function ArtistTimeline({
   yearRange,
   onHighlightArtists,
   onHoverArtists,
+  onHoverAlbum,
   highlightedAlbum,
   highlightedArtistIds,
   onHeightChange,
@@ -211,6 +216,7 @@ export function ArtistTimeline({
                   <LegendItem type="concert" />
                   <LegendItem type="formation" />
                   <LegendItem type="member_join" />
+                  <LegendItem type="member_death" />
                 </div>
               </div>
 
@@ -230,6 +236,7 @@ export function ArtistTimeline({
                       events={eventsByYear.get(year) || []}
                       onEventClick={handleEventClick}
                       onEventHover={onHoverArtists}
+                      onHoverAlbum={onHoverAlbum}
                       highlightedAlbum={highlightedAlbum}
                       highlightedArtistIds={highlightedArtistIds}
                       isInFilterRange={!filterYearRange || (year >= filterYearRange.min && year <= filterYearRange.max)}
@@ -310,6 +317,7 @@ interface EventColumnProps {
   events: TimelineEvent[];
   onEventClick: (event: TimelineEvent, e: React.MouseEvent) => void;
   onEventHover?: (artistIds: string[]) => void;
+  onHoverAlbum?: (albumName: string | null, year: number | null) => void;
   highlightedAlbum?: { name: string; year: number } | null;
   highlightedArtistIds?: string[];
   isInFilterRange: boolean;
@@ -318,7 +326,7 @@ interface EventColumnProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- year kept in props for potential future use
-function EventColumn({ year, events, onEventClick, onEventHover, highlightedAlbum, highlightedArtistIds, isInFilterRange, isFilterBoundaryStart, isFilterBoundaryEnd }: EventColumnProps) {
+function EventColumn({ year, events, onEventClick, onEventHover, onHoverAlbum, highlightedAlbum, highlightedArtistIds, isInFilterRange, isFilterBoundaryStart, isFilterBoundaryEnd }: EventColumnProps) {
   const hasEvents = events.length > 0;
 
   return (
@@ -354,6 +362,7 @@ function EventColumn({ year, events, onEventClick, onEventHover, highlightedAlbu
                 event={event}
                 onClick={onEventClick}
                 onHover={onEventHover}
+                onHoverAlbum={onHoverAlbum}
                 isHighlighted={isAlbumHighlighted || isArtistHighlighted}
               />
             );
@@ -373,10 +382,11 @@ interface EventDotProps {
   event: TimelineEvent;
   onClick: (event: TimelineEvent, e: React.MouseEvent) => void;
   onHover?: (artistIds: string[]) => void;
+  onHoverAlbum?: (albumName: string | null, year: number | null) => void;
   isHighlighted?: boolean;
 }
 
-function EventDot({ event, onClick, onHover, isHighlighted }: EventDotProps) {
+function EventDot({ event, onClick, onHover, onHoverAlbum, isHighlighted }: EventDotProps) {
   const colors = EVENT_COLORS[event.type];
   const icon = EVENT_ICONS[event.type];
   const isAlbum = event.type === 'album';
@@ -423,7 +433,11 @@ function EventDot({ event, onClick, onHover, isHighlighted }: EventDotProps) {
     if (onHover && event.relatedArtistIds?.length) {
       onHover(event.relatedArtistIds);
     }
-  }, [onHover, event.relatedArtistIds]);
+    // Trigger album highlight for bi-directional highlighting with sidebar
+    if (onHoverAlbum && event.type === 'album') {
+      onHoverAlbum(event.title, event.year);
+    }
+  }, [onHover, onHoverAlbum, event.relatedArtistIds, event.type, event.title, event.year]);
 
   const handleMouseLeave = useCallback(() => {
     setIsHovered(false);
@@ -432,7 +446,11 @@ function EventDot({ event, onClick, onHover, isHighlighted }: EventDotProps) {
     if (onHover) {
       onHover([]);
     }
-  }, [onHover]);
+    // Clear album highlight
+    if (onHoverAlbum) {
+      onHoverAlbum(null, null);
+    }
+  }, [onHover, onHoverAlbum]);
 
   return (
     <div className="relative">
@@ -504,6 +522,7 @@ function LegendItem({ type }: { type: TimelineEventType }) {
     disbanded: 'Ended',
     member_join: 'Joined',
     member_leave: 'Left',
+    member_death: 'RIP',
   };
 
   return (

@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { getArtistReleaseGroups } from '@/lib/musicbrainz';
+import { getArtistReleaseGroups, getArtistLifeSpan } from '@/lib/musicbrainz';
 import { getArtistEvents } from '@/lib/concerts';
 import type {
   TimelineEvent,
@@ -16,6 +16,40 @@ interface UseArtistTimelineParams {
   artist: ArtistNode | null;
   relationships?: ArtistRelationship[];
   relatedArtists?: Map<string, ArtistNode>;
+}
+
+/**
+ * Fetch life-span data for person members (to detect deaths)
+ * This is separate from the main relationships query due to MusicBrainz rate limiting
+ */
+async function fetchMemberDeaths(
+  relationships: ArtistRelationship[],
+  relatedArtists: Map<string, ArtistNode>
+): Promise<Map<string, { begin?: string; end?: string | null }>> {
+  const deaths = new Map<string, { begin?: string; end?: string | null }>();
+
+  // Find person-type members who might have death dates
+  const personMembers: string[] = [];
+  for (const rel of relationships) {
+    if (rel.type === 'member_of') {
+      const artistId = rel.source !== rel.target ? rel.target : rel.source;
+      const artist = relatedArtists.get(artistId);
+      // Only fetch for persons who don't already have activeYears
+      if (artist && artist.type === 'person' && !artist.activeYears?.end) {
+        personMembers.push(artistId);
+      }
+    }
+  }
+
+  // Fetch life-span for each person member (respects rate limit via the client queue)
+  for (const mbid of personMembers) {
+    const lifeSpan = await getArtistLifeSpan(mbid);
+    if (lifeSpan?.end) {
+      deaths.set(mbid, lifeSpan);
+    }
+  }
+
+  return deaths;
 }
 
 interface UseArtistTimelineResult {
@@ -106,12 +140,14 @@ function getLifecycleEvents(artist: ArtistNode): TimelineEvent[] {
   if (artist.activeYears?.end) {
     const date = parseMusicBrainzDate(artist.activeYears.end);
     if (date) {
+      // For persons, activeYears.end means death; for groups, it means disbanded
+      const isPerson = artist.type === 'person';
       events.push({
-        id: `disbanded-${artist.id}`,
+        id: isPerson ? `death-${artist.id}` : `disbanded-${artist.id}`,
         date,
         year: date.getFullYear(),
-        type: 'disbanded',
-        title: artist.type === 'group' ? `${artist.name} Disbanded` : `${artist.name} Career Ended`,
+        type: isPerson ? 'member_death' : 'disbanded',
+        title: isPerson ? `${artist.name} Passed Away` : `${artist.name} Disbanded`,
         externalUrl: `https://musicbrainz.org/artist/${artist.id}`,
         artistName: artist.name,
       });
@@ -122,14 +158,16 @@ function getLifecycleEvents(artist: ArtistNode): TimelineEvent[] {
 }
 
 /**
- * Extract member join/leave events from relationships
+ * Extract member join/leave/death events from relationships
  */
 function getMemberEvents(
   relationships: ArtistRelationship[],
   relatedArtists: Map<string, ArtistNode>,
-  centralArtist: ArtistNode
+  centralArtist: ArtistNode,
+  memberDeaths?: Map<string, { begin?: string; end?: string | null }>
 ): TimelineEvent[] {
   const events: TimelineEvent[] = [];
+  const processedDeaths = new Set<string>(); // Track deaths to avoid duplicates
 
   for (const rel of relationships) {
     if (rel.type !== 'member_of') continue;
@@ -166,6 +204,27 @@ function getMemberEvents(
           type: 'member_leave',
           title: `${relatedArtist.name} Left`,
           subtitle: centralArtist.type === 'group' ? centralArtist.name : undefined,
+          externalUrl: `https://musicbrainz.org/artist/${relatedArtist.id}`,
+          relatedArtistIds: [relatedArtist.id],
+          artistName: centralArtist.name,
+        });
+      }
+    }
+
+    // Member death - check from fetched death data first, then fallback to activeYears
+    const deathData = memberDeaths?.get(relatedArtist.id);
+    const deathDateStr = deathData?.end || (relatedArtist.type === 'person' ? relatedArtist.activeYears?.end : null);
+
+    if (deathDateStr && !processedDeaths.has(relatedArtist.id)) {
+      const deathDate = parseMusicBrainzDate(deathDateStr);
+      if (deathDate) {
+        processedDeaths.add(relatedArtist.id);
+        events.push({
+          id: `member-death-${relatedArtist.id}`,
+          date: deathDate,
+          year: deathDate.getFullYear(),
+          type: 'member_death',
+          title: `${relatedArtist.name} Passed Away`,
           externalUrl: `https://musicbrainz.org/artist/${relatedArtist.id}`,
           relatedArtistIds: [relatedArtist.id],
           artistName: centralArtist.name,
@@ -209,6 +268,17 @@ export function useArtistTimeline({
     staleTime: 30 * 60 * 1000, // 30 minutes
   });
 
+  // Fetch death dates for person members (separate API calls due to MusicBrainz data structure)
+  const {
+    data: memberDeaths,
+    isLoading: isLoadingDeaths,
+  } = useQuery({
+    queryKey: ['memberDeaths', artist?.id, relationships.map(r => r.id).join(',')],
+    queryFn: () => fetchMemberDeaths(relationships, relatedArtists),
+    enabled: !!artist?.id && relationships.length > 0,
+    staleTime: 60 * 60 * 1000, // 1 hour (death dates don't change)
+  });
+
   // Build combined timeline
   const events = useMemo(() => {
     if (!artist) return [];
@@ -238,12 +308,12 @@ export function useArtistTimeline({
     // Add lifecycle events (formation/disbanded)
     allEvents.push(...getLifecycleEvents(artist));
 
-    // Add member events
-    allEvents.push(...getMemberEvents(relationships, relatedArtists, artist));
+    // Add member events (including deaths from separately fetched data)
+    allEvents.push(...getMemberEvents(relationships, relatedArtists, artist, memberDeaths));
 
     // Sort by date (oldest first)
     return allEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [artist, releaseGroups, concerts, relationships, relatedArtists]);
+  }, [artist, releaseGroups, concerts, relationships, relatedArtists, memberDeaths]);
 
   // Calculate year range
   const yearRange = useMemo(() => {
@@ -256,7 +326,7 @@ export function useArtistTimeline({
     };
   }, [events]);
 
-  const isLoading = isLoadingReleases || isLoadingConcerts;
+  const isLoading = isLoadingReleases || isLoadingConcerts || isLoadingDeaths;
   const error = releasesError || concertsError || null;
 
   return {

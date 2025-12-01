@@ -710,6 +710,8 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                   graphFilters={graphFilters}
                   selectedNodeId={selectedNodeId}
                   hoveredArtistId={hoveredArtistId}
+                  timelineEvents={timelineEvents}
+                  highlightedAlbum={highlightedAlbum}
                   onSidebarNodeSelect={handleSidebarNodeSelect}
                   onSidebarNodeNavigate={handleSidebarNodeNavigate}
                   onHoverArtist={setHoveredArtistId}
@@ -730,6 +732,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
         yearRange={yearRange}
         onHighlightArtists={handleTimelineHighlight}
         onHoverArtists={handleTimelineHover}
+        onHoverAlbum={onHighlightAlbum}
         highlightedAlbum={highlightedAlbum}
         highlightedArtistIds={hoveredArtistId ? [hoveredArtistId] : undefined}
         onHeightChange={setTimelineHeight}

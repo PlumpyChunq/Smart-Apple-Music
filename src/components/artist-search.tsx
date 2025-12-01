@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FavoritesRecentShows } from '@/components/favorites-recent-shows';
+import { SpotifyAuth } from '@/components/spotify-auth';
+import { AppleMusicAuth } from '@/components/apple-music-auth';
 import type { ArtistNode } from '@/types';
 
 // localStorage keys
@@ -63,8 +65,24 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
       }
     };
 
+    // Listen for custom event (same-tab updates from useFavorites hook)
+    const handleFavoritesUpdated = () => {
+      try {
+        const storedFavorites = localStorage.getItem(FAVORITES_KEY);
+        if (storedFavorites) {
+          setFavorites(JSON.parse(storedFavorites));
+        }
+      } catch {
+        // Ignore
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('favorites-updated', handleFavoritesUpdated);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('favorites-updated', handleFavoritesUpdated);
+    };
   }, []);
 
   // Save recent search when an artist is selected
@@ -154,6 +172,15 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
         <Button onClick={handleSearch} disabled={inputValue.length < 2 || isLoading}>
           {isLoading ? 'Searching...' : 'Search'}
         </Button>
+      </div>
+
+      {/* Music Service Connections */}
+      <div className="space-y-2">
+        <span className="text-xs text-gray-500 font-medium">Import from Music Services</span>
+        <div className="flex flex-wrap gap-2">
+          <SpotifyAuth />
+          <AppleMusicAuth />
+        </div>
       </div>
 
       {/* Favorites Section */}

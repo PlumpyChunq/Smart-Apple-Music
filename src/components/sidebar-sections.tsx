@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { CollapsibleSection } from '@/components/ui/collapsible-section';
 import { useSidebarPreferences, type SectionId } from '@/lib/sidebar';
 import { RecentConcerts } from '@/components/recent-concerts';
-import type { ArtistNode, ArtistRelationship } from '@/types';
+import type { ArtistNode, ArtistRelationship, TimelineEvent } from '@/types';
 import type { GraphFilterState } from '@/components/graph';
 import { parseYear } from '@/lib/utils';
 
@@ -31,6 +31,8 @@ interface SidebarSectionsProps {
   graphFilters: GraphFilterState;
   selectedNodeId: string | null;
   hoveredArtistId: string | null;
+  timelineEvents?: TimelineEvent[];
+  highlightedAlbum?: { name: string; year: number } | null;
   onSidebarNodeSelect: (artist: ArtistNode) => void;
   onSidebarNodeNavigate: (artist: ArtistNode) => void;
   onHoverArtist: (artistId: string | null) => void;
@@ -46,6 +48,8 @@ export function SidebarSections({
   graphFilters,
   selectedNodeId,
   hoveredArtistId,
+  timelineEvents = [],
+  highlightedAlbum,
   onSidebarNodeSelect,
   onSidebarNodeNavigate,
   onHoverArtist,
@@ -56,8 +60,49 @@ export function SidebarSections({
   const sidebarPrefs = useSidebarPreferences();
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
+  // Build a lookup from album name (normalized) to year from timeline events
+  const albumYearLookup = useMemo(() => {
+    const lookup = new Map<string, number>();
+    for (const event of timelineEvents) {
+      if (event.type === 'album' && event.title) {
+        // Normalize album name for matching
+        const normalized = event.title.toLowerCase().trim();
+        lookup.set(normalized, event.year);
+      }
+    }
+    return lookup;
+  }, [timelineEvents]);
+
+  // Helper to find year for an album (fuzzy match)
+  const findAlbumYear = useCallback((albumName: string): number | null => {
+    const normalized = albumName.toLowerCase().trim();
+    // Exact match first
+    if (albumYearLookup.has(normalized)) {
+      return albumYearLookup.get(normalized)!;
+    }
+    // Partial match (album name contains or is contained by timeline title)
+    for (const [title, year] of albumYearLookup) {
+      if (title.includes(normalized) || normalized.includes(title)) {
+        return year;
+      }
+    }
+    return null;
+  }, [albumYearLookup]);
+
+  // Check if album matches highlighted album (for bidirectional highlighting)
+  const isAlbumHighlighted = useCallback((albumName: string, albumYear: number | null): boolean => {
+    if (!highlightedAlbum) return false;
+    const normalizedAlbum = albumName.toLowerCase().trim();
+    const normalizedHighlighted = highlightedAlbum.name.toLowerCase().trim();
+    // Match by name similarity and optionally year
+    const nameMatches = normalizedAlbum.includes(normalizedHighlighted.substring(0, 10)) ||
+                       normalizedHighlighted.includes(normalizedAlbum.substring(0, 10));
+    const yearMatches = !albumYear || !highlightedAlbum.year || albumYear === highlightedAlbum.year;
+    return nameMatches && yearMatches;
+  }, [highlightedAlbum]);
+
   // Helper to check if a relationship is within the year range
-  const isRelationshipInYearRange = useCallback((period: { begin?: string; end?: string } | undefined): boolean => {
+  const isRelationshipInYearRange = useCallback((period: { begin?: string; end?: string | null } | undefined): boolean => {
     if (!graphFilters.yearRange) return true;
     const { min: filterMin, max: filterMax } = graphFilters.yearRange;
     const beginYear = parseYear(period?.begin);
@@ -118,15 +163,34 @@ export function SidebarSections({
   const renderAlbums = useCallback(() => {
     if (!displayArtist.albums) return null;
 
+    const MAX_ALBUMS = 50;
+
+    // Enrich albums with years from timeline events and sort chronologically
+    const albumsWithYears = displayArtist.albums.map(album => {
+      // Try releaseDate first, then lookup from timeline events
+      const year = parseYear(album.releaseDate) ?? findAlbumYear(album.name);
+      return { album, year };
+    });
+
+    // Sort by year (albums without years go at the end)
+    const sortedAlbums = albumsWithYears.sort((a, b) => {
+      if (a.year === null && b.year === null) return 0;
+      if (a.year === null) return 1;
+      if (b.year === null) return -1;
+      return a.year - b.year;
+    });
+
+    const displayedAlbums = sortedAlbums.slice(0, MAX_ALBUMS);
+    const hasMore = sortedAlbums.length > MAX_ALBUMS;
+
     return (
-      <div className="grid grid-cols-3 gap-2">
-        {[...displayArtist.albums]
-          .sort((a, b) => (parseYear(a.releaseDate) ?? 0) - (parseYear(b.releaseDate) ?? 0))
-          .map((album) => {
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          {displayedAlbums.map(({ album, year: albumYear }) => {
             const musicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(`${displayArtist.name} ${album.name}`)}`;
-            const albumYear = parseYear(album.releaseDate);
             const isAlbumInRange = !graphFilters.yearRange || !albumYear ||
               (albumYear >= graphFilters.yearRange.min && albumYear <= graphFilters.yearRange.max);
+            const isHighlighted = isAlbumHighlighted(album.name, albumYear);
 
             return (
               <a
@@ -134,7 +198,7 @@ export function SidebarSections({
                 href={musicUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`text-center group cursor-pointer block transition-opacity ${isAlbumInRange ? '' : 'opacity-30'}`}
+                className={`text-center group cursor-pointer block transition-all ${isAlbumInRange ? '' : 'opacity-30'} ${isHighlighted ? 'ring-2 ring-purple-500 rounded' : ''}`}
                 onMouseEnter={() => albumYear && onHighlightAlbum(album.name, albumYear)}
                 onMouseLeave={() => onHighlightAlbum(null, null)}
               >
@@ -142,23 +206,29 @@ export function SidebarSections({
                   <img
                     src={album.artworkUrl}
                     alt={album.name}
-                    className="w-full aspect-square rounded shadow-sm object-cover group-hover:ring-2 group-hover:ring-blue-400 transition-all"
+                    className={`w-full aspect-square rounded shadow-sm object-cover transition-all ${isHighlighted ? 'ring-2 ring-purple-500' : 'group-hover:ring-2 group-hover:ring-blue-400'}`}
                   />
                 ) : (
-                  <div className="w-full aspect-square rounded bg-gray-100 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition-all">
+                  <div className={`w-full aspect-square rounded bg-gray-100 flex items-center justify-center transition-all ${isHighlighted ? 'ring-2 ring-purple-500' : 'group-hover:ring-2 group-hover:ring-blue-400'}`}>
                     <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                     </svg>
                   </div>
                 )}
-                <p className="text-xs mt-1 truncate group-hover:text-blue-600" title={album.name}>{album.name}</p>
+                <p className={`text-xs mt-1 truncate ${isHighlighted ? 'text-purple-600 font-medium' : 'group-hover:text-blue-600'}`} title={album.name}>{album.name}</p>
                 {albumYear && <p className="text-xs text-gray-400">{albumYear}</p>}
               </a>
             );
           })}
+        </div>
+        {hasMore && (
+          <p className="text-xs text-gray-500 text-center italic">
+            +{sortedAlbums.length - MAX_ALBUMS} more albums not shown
+          </p>
+        )}
       </div>
     );
-  }, [displayArtist.albums, displayArtist.name, graphFilters.yearRange, onHighlightAlbum]);
+  }, [displayArtist.albums, displayArtist.name, graphFilters.yearRange, onHighlightAlbum, findAlbumYear, isAlbumHighlighted]);
 
   // Build sections array with content
   type SectionData = { id: SectionId; title: string; count?: number; content: React.ReactNode };

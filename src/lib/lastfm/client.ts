@@ -116,7 +116,7 @@ export async function getLastFmArtistInfo(artistName: string): Promise<{
  */
 export async function getLastFmTopAlbums(
   artistName: string,
-  limit: number = 6
+  limit: number = 20
 ): Promise<AppleMusicAlbumInfo[]> {
   const cacheKey = `lastfm-albums-${artistName.toLowerCase()}`;
   const cached = cacheGet<AppleMusicAlbumInfo[]>(cacheKey);
@@ -176,7 +176,7 @@ export async function enrichArtistWithLastFm(
     // Fetch artist info and albums in parallel
     const [artistInfo, albums] = await Promise.all([
       getLastFmArtistInfo(artist.name),
-      getLastFmTopAlbums(artist.name, 6),
+      getLastFmTopAlbums(artist.name, 50),
     ]);
 
     const enrichmentData: Partial<ArtistNode> = {};

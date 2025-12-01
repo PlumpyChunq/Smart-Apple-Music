@@ -1,6 +1,7 @@
 export {
   searchArtists,
   getArtist,
+  getArtistLifeSpan,
   getArtistRelationships,
   getArtistReleaseGroups,
   buildArtistGraph,
