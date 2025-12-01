@@ -7,6 +7,8 @@
 
 import type {
   MusicBrainzArtist,
+  MusicBrainzArtistWithReleases,
+  MusicBrainzReleaseGroup,
   MusicBrainzSearchResponse,
   ArtistNode,
   ArtistRelationship,
@@ -180,6 +182,51 @@ export async function buildArtistGraph(mbid: string): Promise<ArtistGraph> {
   const edges = relationships.map(r => ({ data: r }));
 
   return { nodes, edges };
+}
+
+/**
+ * Get release groups (albums, EPs, singles) for an artist
+ * @param mbid - MusicBrainz artist ID
+ * @param primaryTypes - Filter by primary type (e.g., ['Album', 'EP'])
+ * @returns Array of release groups sorted by date (newest first)
+ */
+export async function getArtistReleaseGroups(
+  mbid: string,
+  primaryTypes: string[] = ['Album']
+): Promise<MusicBrainzReleaseGroup[]> {
+  const artist = await mbFetch<MusicBrainzArtistWithReleases>(`/artist/${mbid}`, {
+    inc: 'release-groups',
+  });
+
+  if (!artist['release-groups']) {
+    return [];
+  }
+
+  // Filter by primary type and exclude compilations/live albums by default
+  const filtered = artist['release-groups'].filter(rg => {
+    const primaryType = rg['primary-type'];
+    const secondaryTypes = rg['secondary-types'] || [];
+
+    // Must match one of the requested primary types
+    if (!primaryType || !primaryTypes.includes(primaryType)) {
+      return false;
+    }
+
+    // Exclude compilations and live albums (unless specifically requested)
+    const excludeSecondary = ['Compilation', 'Live'];
+    if (secondaryTypes.some(st => excludeSecondary.includes(st))) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Sort by release date (newest first), handling partial dates
+  return filtered.sort((a, b) => {
+    const dateA = a['first-release-date'] || '';
+    const dateB = b['first-release-date'] || '';
+    return dateB.localeCompare(dateA);
+  });
 }
 
 // ============================================================================

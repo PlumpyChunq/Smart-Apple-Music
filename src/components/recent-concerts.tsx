@@ -8,8 +8,8 @@ interface RecentShowsProps {
   maxDisplay?: number;
 }
 
-export function UpcomingConcerts({ artistName, maxDisplay = 5 }: RecentShowsProps) {
-  const { concerts, isLoading, error, upcomingCount: recentCount } = useArtistConcerts(artistName);
+export function RecentConcerts({ artistName, maxDisplay = 5 }: RecentShowsProps) {
+  const { concerts, isLoading, error, recentCount } = useArtistConcerts(artistName);
 
   if (isLoading) {
     return (

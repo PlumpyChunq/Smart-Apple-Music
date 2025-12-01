@@ -150,6 +150,55 @@ export interface GraphState {
 }
 
 // ============================================================================
+// Timeline Types
+// ============================================================================
+
+/**
+ * Types of events that can appear on the timeline
+ */
+export type TimelineEventType =
+  | 'album'          // Major album release
+  | 'concert'        // Concert/show
+  | 'formation'      // Band/group formed
+  | 'disbanded'      // Band/group disbanded
+  | 'member_join'    // Member joined the group
+  | 'member_leave';  // Member left the group
+
+/**
+ * A single event on the artist timeline
+ */
+export interface TimelineEvent {
+  id: string;
+  date: Date;
+  year: number;
+  type: TimelineEventType;
+  title: string;
+  subtitle?: string;           // Additional context (e.g., venue for concerts)
+  externalUrl?: string;        // Link to setlist.fm, MusicBrainz, etc.
+  relatedArtistIds?: string[]; // MBIDs of related artists (for graph highlighting)
+  artistName?: string;         // Name of the artist this event belongs to
+}
+
+/**
+ * MusicBrainz release group (album/EP/single)
+ */
+export interface MusicBrainzReleaseGroup {
+  id: string;
+  title: string;
+  'primary-type'?: string;        // Album, EP, Single, etc.
+  'secondary-types'?: string[];   // Compilation, Live, Remix, etc.
+  'first-release-date'?: string;  // YYYY or YYYY-MM or YYYY-MM-DD
+  disambiguation?: string;
+}
+
+/**
+ * MusicBrainz artist response with release groups
+ */
+export interface MusicBrainzArtistWithReleases extends MusicBrainzArtist {
+  'release-groups'?: MusicBrainzReleaseGroup[];
+}
+
+// ============================================================================
 // Future Types (Phase 2+)
 // ============================================================================
 

@@ -2,6 +2,7 @@ export {
   searchArtists,
   getArtist,
   getArtistRelationships,
+  getArtistReleaseGroups,
   buildArtistGraph,
 } from './client';
 

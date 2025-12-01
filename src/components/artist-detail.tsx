@@ -8,7 +8,9 @@ import { GraphView, LayoutType } from '@/components/graph';
 import { addToFavorites, removeFromFavorites, isFavorite } from '@/components/artist-search';
 import type { ArtistNode, ArtistRelationship, ArtistGraph } from '@/types';
 import { getArtistRelationships } from '@/lib/musicbrainz/client';
-import { UpcomingConcerts } from '@/components/upcoming-concerts';
+import { RecentConcerts } from '@/components/recent-concerts';
+import { useArtistTimeline } from '@/lib/timeline';
+import { ArtistTimeline } from '@/components/timeline';
 
 interface ArtistDetailProps {
   artist: ArtistNode;
@@ -277,6 +279,33 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
 
   const { data, isLoading, error } = useArtistRelationships(artist.id);
 
+  // Build map of related artists for timeline
+  const relatedArtistsMap = useMemo(() => {
+    if (!data) return new Map<string, ArtistNode>();
+    return new Map(data.relatedArtists.map(a => [a.id, a]));
+  }, [data]);
+
+  // Timeline data
+  const {
+    events: timelineEvents,
+    isLoading: isTimelineLoading,
+    yearRange,
+  } = useArtistTimeline({
+    artist: data?.artist || null,
+    relationships: data?.relationships || [],
+    relatedArtists: relatedArtistsMap,
+  });
+
+  // Handle highlighting artists from timeline
+  const handleTimelineHighlight = useCallback((artistIds: string[]) => {
+    // Set the first related artist as selected in the graph
+    if (artistIds.length > 0) {
+      setSelectedNodeId(artistIds[0]);
+    } else {
+      setSelectedNodeId(null);
+    }
+  }, []);
+
   // Build initial graph data from relationships
   const initialGraphData = useMemo<ArtistGraph>(() => {
     if (!data) return { nodes: [], edges: [] };
@@ -450,7 +479,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-4">
+    <div className="w-full max-w-7xl mx-auto space-y-4 pb-24">
       <Button variant="outline" onClick={onBack} className="mb-4">
         ← Back to Search
       </Button>
@@ -656,11 +685,19 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
               ))}
 
               {/* Recent Shows at the bottom */}
-              <UpcomingConcerts artistName={artist.name} maxDisplay={5} />
+              <RecentConcerts artistName={artist.name} maxDisplay={5} />
             </div>
           )}
         </div>
       )}
+
+      {/* Timeline Ribbon */}
+      <ArtistTimeline
+        events={timelineEvents}
+        isLoading={isTimelineLoading}
+        yearRange={yearRange}
+        onHighlightArtists={handleTimelineHighlight}
+      />
     </div>
   );
 }

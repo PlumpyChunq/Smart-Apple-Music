@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { ArtistSearch } from '@/components/artist-search';
 import { ArtistDetail } from '@/components/artist-detail';
+import { FavoritesRecentShows } from '@/components/favorites-recent-shows';
+import { useFavorites } from '@/lib/favorites';
 import type { ArtistNode } from '@/types';
 
 export default function Home() {
   const [selectedArtist, setSelectedArtist] = useState<ArtistNode | null>(null);
+  const { favoriteNames, isLoaded } = useFavorites();
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -27,7 +30,15 @@ export default function Home() {
             onSelectRelated={(artist) => setSelectedArtist(artist)}
           />
         ) : (
-          <ArtistSearch onSelectArtist={setSelectedArtist} />
+          <>
+            <ArtistSearch onSelectArtist={setSelectedArtist} />
+            {/* Show favorites recent shows on home page (after localStorage loads) */}
+            {isLoaded && favoriteNames.length > 0 && (
+              <div className="max-w-2xl mx-auto">
+                <FavoritesRecentShows artistNames={favoriteNames} />
+              </div>
+            )}
+          </>
         )}
 
         <footer className="mt-16 text-center text-sm text-gray-400">

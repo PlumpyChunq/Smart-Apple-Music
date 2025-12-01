@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { getArtistEvents, Concert, RECENT_THRESHOLD_MS } from './client';
+
+export interface ConcertWithArtist extends Concert {
+  artistName: string;
+}
 
 interface UseArtistConcertsResult {
   concerts: Concert[];
   isLoading: boolean;
   error: string | null;
-  upcomingCount: number;
-}
-
-export interface ConcertWithArtist extends Concert {
-  artistName: string;
+  recentCount: number;
 }
 
 interface UseMultipleArtistsConcertsResult {
@@ -22,113 +23,68 @@ interface UseMultipleArtistsConcertsResult {
 }
 
 /**
- * Hook to fetch concerts for multiple artists
+ * Hook to fetch concerts for an artist using TanStack Query
  */
-export function useMultipleArtistsConcerts(artistNames: string[]): UseMultipleArtistsConcertsResult {
-  const [concerts, setConcerts] = useState<ConcertWithArtist[]>([]);
-  const [loadingCount, setLoadingCount] = useState(0);
+export function useArtistConcerts(artistName: string | null): UseArtistConcertsResult {
+  const query = useQuery({
+    queryKey: ['artistConcerts', artistName],
+    queryFn: () => getArtistEvents(artistName!),
+    enabled: !!artistName,
+    staleTime: 30 * 60 * 1000, // 30 minutes - concert data is relatively stable
+  });
 
-  useEffect(() => {
-    if (artistNames.length === 0) {
-      setConcerts([]);
-      return;
-    }
-
-    let cancelled = false;
-    setLoadingCount(artistNames.length);
-    setConcerts([]);
-
-    // Fetch concerts for each artist
-    artistNames.forEach((artistName) => {
-      getArtistEvents(artistName)
-        .then((events) => {
-          if (!cancelled) {
-            // Add artist name to each concert
-            const concertsWithArtist: ConcertWithArtist[] = events.map((c) => ({
-              ...c,
-              artistName,
-            }));
-            setConcerts((prev) => [...prev, ...concertsWithArtist]);
-          }
-        })
-        .catch(() => {
-          // Silently ignore errors for individual artists
-        })
-        .finally(() => {
-          if (!cancelled) {
-            setLoadingCount((prev) => Math.max(0, prev - 1));
-          }
-        });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [artistNames.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sort concerts by date (most recent first)
-  const sortedConcerts = [...concerts].sort((a, b) => b.date.getTime() - a.date.getTime());
+  // Count recent shows (within threshold period - past 90 days)
+  const recentCount = useMemo(() => {
+    if (!query.data) return 0;
+    const now = new Date();
+    const thresholdDate = new Date(now.getTime() - RECENT_THRESHOLD_MS);
+    return query.data.filter(
+      (c) => c.date <= now && c.date >= thresholdDate
+    ).length;
+  }, [query.data]);
 
   return {
-    concerts: sortedConcerts,
-    isLoading: loadingCount > 0,
-    loadingCount,
-    totalArtists: artistNames.length,
+    concerts: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error?.message ?? null,
+    recentCount,
   };
 }
 
 /**
- * Hook to fetch concerts for an artist
+ * Hook to fetch concerts for multiple artists using TanStack Query's useQueries
+ * for parallel fetching with automatic caching and deduplication
  */
-export function useArtistConcerts(artistName: string | null): UseArtistConcertsResult {
-  const [concerts, setConcerts] = useState<Concert[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useMultipleArtistsConcerts(artistNames: string[]): UseMultipleArtistsConcertsResult {
+  // Use useQueries for parallel fetching
+  const queries = useQueries({
+    queries: artistNames.map((artistName) => ({
+      queryKey: ['artistConcerts', artistName],
+      queryFn: () => getArtistEvents(artistName),
+      staleTime: 30 * 60 * 1000, // 30 minutes
+    })),
+  });
 
-  useEffect(() => {
-    if (!artistName) {
-      setConcerts([]);
-      setError(null);
-      return;
-    }
+  // Aggregate results from all queries
+  const concerts = useMemo(() => {
+    return queries
+      .flatMap((q, i) =>
+        (q.data ?? []).map((c) => ({
+          ...c,
+          artistName: artistNames[i],
+        }))
+      )
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [queries, artistNames]);
 
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-
-    getArtistEvents(artistName)
-      .then((events) => {
-        if (!cancelled) {
-          setConcerts(events);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch concerts');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [artistName]);
-
-  // Count recent shows (within threshold period - past 90 days)
-  const now = new Date();
-  const thresholdDate = new Date(now.getTime() - RECENT_THRESHOLD_MS);
-  const recentCount = concerts.filter(
-    (c) => c.date <= now && c.date >= thresholdDate
-  ).length;
+  // Calculate loading state
+  const loadingCount = queries.filter((q) => q.isLoading).length;
+  const isLoading = loadingCount > 0;
 
   return {
     concerts,
     isLoading,
-    error,
-    upcomingCount: recentCount, // Keep name for compatibility
+    loadingCount,
+    totalArtists: artistNames.length,
   };
 }

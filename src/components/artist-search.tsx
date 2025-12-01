@@ -5,7 +5,7 @@ import { useArtistSearch } from '@/lib/musicbrainz/hooks';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FavoritesUpcomingShows } from '@/components/favorites-upcoming-shows';
+import { FavoritesRecentShows } from '@/components/favorites-recent-shows';
 import type { ArtistNode } from '@/types';
 
 // localStorage keys
@@ -209,7 +209,7 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
 
       {/* Recent Shows from Favorites */}
       {favoriteArtistNames.length > 0 && !searchQuery && (
-        <FavoritesUpcomingShows artistNames={favoriteArtistNames} />
+        <FavoritesRecentShows artistNames={favoriteArtistNames} />
       )}
 
       {error && (

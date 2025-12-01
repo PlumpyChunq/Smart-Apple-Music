@@ -9,7 +9,7 @@ interface FavoritesRecentShowsProps {
   maxDisplay?: number;
 }
 
-export function FavoritesUpcomingShows({ artistNames, maxDisplay = 8 }: FavoritesRecentShowsProps) {
+export function FavoritesRecentShows({ artistNames, maxDisplay = 8 }: FavoritesRecentShowsProps) {
   const { concerts, isLoading, loadingCount, totalArtists } = useMultipleArtistsConcerts(artistNames);
 
   // Show most recent concerts first (already sorted by date)
