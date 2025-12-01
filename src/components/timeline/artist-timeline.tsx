@@ -11,7 +11,13 @@ interface ArtistTimelineProps {
   yearRange: { min: number; max: number } | null;
   onHighlightArtists?: (artistIds: string[]) => void;
   highlightedAlbum?: { name: string; year: number } | null;
+  highlightedArtistIds?: string[];
+  onHeightChange?: (height: number) => void;
 }
+
+export const TIMELINE_MIN_HEIGHT = 80;
+export const TIMELINE_MAX_HEIGHT = 400;
+export const TIMELINE_DEFAULT_HEIGHT = 112;
 
 const EVENT_COLORS: Record<TimelineEventType, { bg: string; border: string; text: string }> = {
   album: { bg: 'bg-purple-100', border: 'border-purple-400', text: 'text-purple-700' },
@@ -44,26 +50,29 @@ function TooltipPortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-const MIN_HEIGHT = 80;
-const MAX_HEIGHT = 400;
-const DEFAULT_HEIGHT = 112; // h-28 equivalent
-
 export function ArtistTimeline({
   events,
   isLoading,
   yearRange,
   onHighlightArtists,
   highlightedAlbum,
+  highlightedArtistIds,
+  onHeightChange,
 }: ArtistTimelineProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
   const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Resizable height state
-  const [height, setHeight] = useState(DEFAULT_HEIGHT);
+  const [height, setHeight] = useState(TIMELINE_DEFAULT_HEIGHT);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(0);
+
+  // Notify parent of height changes
+  useEffect(() => {
+    onHeightChange?.(height);
+  }, [height, onHeightChange]);
 
   // Handle resize drag
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -79,7 +88,7 @@ export function ArtistTimeline({
     const handleMouseMove = (e: MouseEvent) => {
       // Since timeline is at bottom, dragging up (negative delta) should increase height
       const delta = dragStartY.current - e.clientY;
-      const newHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, dragStartHeight.current + delta));
+      const newHeight = Math.min(TIMELINE_MAX_HEIGHT, Math.max(TIMELINE_MIN_HEIGHT, dragStartHeight.current + delta));
       setHeight(newHeight);
     };
 
@@ -210,6 +219,7 @@ export function ArtistTimeline({
                       events={eventsByYear.get(year) || []}
                       onEventClick={handleEventClick}
                       highlightedAlbum={highlightedAlbum}
+                      highlightedArtistIds={highlightedArtistIds}
                     />
                   ))}
                 </div>
@@ -268,9 +278,10 @@ interface EventColumnProps {
   events: TimelineEvent[];
   onEventClick: (event: TimelineEvent, e: React.MouseEvent) => void;
   highlightedAlbum?: { name: string; year: number } | null;
+  highlightedArtistIds?: string[];
 }
 
-function EventColumn({ year, events, onEventClick, highlightedAlbum }: EventColumnProps) {
+function EventColumn({ year, events, onEventClick, highlightedAlbum, highlightedArtistIds }: EventColumnProps) {
   const hasEvents = events.length > 0;
 
   return (
@@ -281,19 +292,26 @@ function EventColumn({ year, events, onEventClick, highlightedAlbum }: EventColu
       {/* Events */}
       {hasEvents ? (
         <div className="relative flex gap-0.5 z-10 mb-[-3px]">
-          {events.slice(0, 5).map((event) => (
-            <EventDot
-              key={event.id}
-              event={event}
-              onClick={onEventClick}
-              isHighlighted={
-                highlightedAlbum &&
-                event.type === 'album' &&
-                event.year === highlightedAlbum.year &&
-                event.title.toLowerCase().includes(highlightedAlbum.name.toLowerCase().substring(0, 10))
-              }
-            />
-          ))}
+          {events.slice(0, 5).map((event) => {
+            // Check if event is highlighted via album
+            const isAlbumHighlighted = highlightedAlbum &&
+              event.type === 'album' &&
+              event.year === highlightedAlbum.year &&
+              event.title.toLowerCase().includes(highlightedAlbum.name.toLowerCase().substring(0, 10));
+
+            // Check if event is highlighted via artist (event involves this artist)
+            const isArtistHighlighted = !!(highlightedArtistIds?.length &&
+              event.relatedArtistIds?.some(id => highlightedArtistIds.includes(id)));
+
+            return (
+              <EventDot
+                key={event.id}
+                event={event}
+                onClick={onEventClick}
+                isHighlighted={isAlbumHighlighted || isArtistHighlighted}
+              />
+            );
+          })}
           {events.length > 5 && (
             <span className="text-[10px] text-gray-400 ml-1">+{events.length - 5}</span>
           )}

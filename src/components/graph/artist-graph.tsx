@@ -30,6 +30,7 @@ interface ArtistGraphProps {
   onNodeClick?: (artist: ArtistNode | null) => void;
   onNodeExpand?: (artistId: string) => void;
   selectedNodeId?: string | null;
+  hoveredNodeId?: string | null;
   className?: string;
   cyRef?: React.MutableRefObject<Core | null>;
   layoutType?: LayoutType;
@@ -85,14 +86,6 @@ const cytoscapeStyle = [
       'height': 35,
     },
   },
-  // Founding members - gold border
-  {
-    selector: 'node[founding = "true"]',
-    style: {
-      'border-color': '#f59e0b',
-      'border-width': 4,
-    },
-  },
   // Selected node
   {
     selector: 'node:selected',
@@ -146,6 +139,29 @@ const cytoscapeStyle = [
     style: {
       'background-opacity': 0.7,
       'border-style': 'dashed',
+    },
+  },
+  // Founding members - purple border (solid)
+  // Must come AFTER loaded="false" to override the dashed border
+  {
+    selector: 'node[founding = "true"]',
+    style: {
+      'border-color': '#8b5cf6',
+      'border-width': 4,
+      'border-style': 'solid',
+    },
+  },
+  // Hovered node (from sidebar hover) - yellow ring like timeline highlights
+  // Must come AFTER loaded="false" to override the dashed border
+  {
+    selector: 'node.hovered',
+    style: {
+      'border-color': '#eab308',
+      'border-width': 4,
+      'border-style': 'solid',
+      'z-index': 1000,
+      'transition-property': 'border-color, border-width',
+      'transition-duration': 300,
     },
   },
   // Edge base styles
@@ -225,6 +241,7 @@ export function ArtistGraph({
   onNodeClick,
   onNodeExpand,
   selectedNodeId,
+  hoveredNodeId,
   className = '',
   cyRef: externalCyRef,
   layoutType = 'auto',
@@ -750,6 +767,23 @@ export function ArtistGraph({
     }
   }, [selectedNodeId]);
 
+  // Update hover highlighting when hoveredNodeId changes
+  useEffect(() => {
+    if (!cyRef.current || isDestroyedRef.current) return;
+
+    const cy = cyRef.current;
+
+    // Clear previous hover state
+    cy.nodes().removeClass('hovered');
+
+    if (hoveredNodeId) {
+      const hoveredNode = cy.$(`#${hoveredNodeId}`);
+      if (hoveredNode.length) {
+        hoveredNode.addClass('hovered');
+      }
+    }
+  }, [hoveredNodeId]);
+
   // Update elements when graph changes
   useEffect(() => {
     if (!cyRef.current || isDestroyedRef.current) return;
@@ -890,7 +924,7 @@ export function ArtistGraph({
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur p-3 rounded-lg shadow-sm text-xs space-y-1">
+      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur p-3 rounded-lg shadow-sm text-xs space-y-1 max-h-[calc(100%-6rem)] overflow-y-auto">
         <div className="font-semibold mb-2">Legend</div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded-full bg-blue-500" />
@@ -901,19 +935,19 @@ export function ArtistGraph({
           <span>Person</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-emerald-500 border-2 border-amber-500" />
+          <div className="w-3 h-3 rounded-full bg-emerald-500 border-2 border-violet-500" />
           <span>Founding Member</span>
         </div>
         <div className="flex items-center gap-2 mt-2 pt-2 border-t">
-          <div className="w-4 h-0.5 bg-blue-500" />
+          <div className="w-4 h-0.5 bg-blue-300" />
           <span>Member of</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-0.5 bg-emerald-500 border-dashed" style={{ borderTopWidth: 2, borderTopStyle: 'dashed' }} />
+          <div className="w-4 h-0.5 bg-emerald-400 border-dashed" style={{ borderTopWidth: 2, borderTopStyle: 'dashed' }} />
           <span>Collaboration</span>
         </div>
         <div className="flex items-center gap-2 mt-2 pt-2 border-t">
-          <div className="w-3 h-3 rounded-full border-2 border-red-500 border-dashed bg-red-50" />
+          <div className="w-3 h-3 rounded-full border-2 border-red-500 bg-red-50" />
           <span>Selected</span>
         </div>
         <div className="flex items-center gap-2">

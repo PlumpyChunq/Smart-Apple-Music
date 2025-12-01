@@ -11,7 +11,8 @@ import type { ArtistNode, ArtistRelationship, ArtistGraph } from '@/types';
 import { getArtistRelationships } from '@/lib/musicbrainz/client';
 import { RecentConcerts } from '@/components/recent-concerts';
 import { useArtistTimeline } from '@/lib/timeline';
-import { ArtistTimeline } from '@/components/timeline';
+import { ArtistTimeline, TIMELINE_DEFAULT_HEIGHT } from '@/components/timeline';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 
 interface ArtistDetailProps {
   artist: ArtistNode;
@@ -262,8 +263,10 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   const [isFav, setIsFav] = useState(false);
   const [layoutType, setLayoutType] = useState<LayoutType>('auto');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [hoveredArtistId, setHoveredArtistId] = useState<string | null>(null);
   const [graphFilters, setGraphFilters] = useState<GraphFilterState>(getDefaultFilters);
   const [highlightedAlbum, setHighlightedAlbum] = useState<{ name: string; year: number } | null>(null);
+  const [timelineHeight, setTimelineHeight] = useState(TIMELINE_DEFAULT_HEIGHT);
 
   // Check if artist is favorite on mount
   useEffect(() => {
@@ -495,9 +498,9 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-4 pb-24">
+    <div className="w-full px-4 flex flex-col h-[calc(100vh-80px)]" style={{ paddingBottom: timelineHeight + 16 }}>
       {/* Artist Header - Compact */}
-      <div className="flex items-center justify-between bg-white p-3 rounded-lg border">
+      <div className="flex items-center justify-between bg-white p-3 rounded-lg border shrink-0 mb-4">
         <div className="flex items-center gap-3">
           {/* Artist Image from Apple Music */}
           {displayArtist.imageUrl ? (
@@ -547,7 +550,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
       </div>
 
       {/* Controls Bar */}
-      <div className="bg-white p-2 rounded-lg border space-y-2">
+      <div className="bg-white p-2 rounded-lg border space-y-2 shrink-0 mb-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-base font-semibold">Relationships</h2>
           <div className="flex items-center gap-2 flex-wrap">
@@ -625,41 +628,51 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
       )}
 
       {data && data.relationships.length > 0 && (
-        <div className="flex gap-4" style={{ height: 'calc(100vh - 250px)', minHeight: '400px' }}>
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="rounded-lg flex-1 min-h-0"
+        >
           {/* Main Graph View */}
-          <div className={`relative flex-1 h-full ${showList ? 'min-w-0' : ''}`}>
-            {isExpanding && (
-              <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center rounded-lg">
-                <div className="bg-white px-4 py-3 rounded-lg shadow-lg text-center">
-                  <div className="animate-pulse mb-1">
-                    Expanding network to Level {expansionDepth}...
-                  </div>
-                  {expandProgress && (
-                    <div className="text-sm text-gray-500">
-                      Node {expandProgress.current} of {expandProgress.total}
+          <ResizablePanel defaultSize={showList ? 70 : 100} minSize={40}>
+            <div className="relative h-full">
+              {isExpanding && (
+                <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center rounded-lg">
+                  <div className="bg-white px-4 py-3 rounded-lg shadow-lg text-center">
+                    <div className="animate-pulse mb-1">
+                      Expanding network to Level {expansionDepth}...
                     </div>
-                  )}
+                    {expandProgress && (
+                      <div className="text-sm text-gray-500">
+                        Node {expandProgress.current} of {expandProgress.total}
+                      </div>
+                    )}
+                  </div>
                 </div>
+              )}
+              <GraphView
+                graph={graphData}
+                onNodeClick={handleNodeClick}
+                onNodeExpand={handleNodeExpand}
+                selectedNodeId={selectedNodeId}
+                hoveredNodeId={hoveredArtistId}
+                layoutType={layoutType}
+                networkDepth={expansionDepth}
+                onLayoutChange={setLayoutType}
+                filters={graphFilters}
+              />
+              <div className="mt-2 text-center text-sm text-gray-500">
+                {graphData.nodes.length} artists • {graphData.edges.length} connections
               </div>
-            )}
-            <GraphView
-              graph={graphData}
-              onNodeClick={handleNodeClick}
-              onNodeExpand={handleNodeExpand}
-              selectedNodeId={selectedNodeId}
-              layoutType={layoutType}
-              networkDepth={expansionDepth}
-              onLayoutChange={setLayoutType}
-              filters={graphFilters}
-            />
-            <div className="mt-2 text-center text-sm text-gray-500">
-              {graphData.nodes.length} artists • {graphData.edges.length} connections
             </div>
-          </div>
+          </ResizablePanel>
+
+          {/* Resizable Handle */}
+          {showList && <ResizableHandle withHandle />}
 
           {/* List Sidebar */}
           {showList && (
-            <div className="w-72 flex-shrink-0 h-full overflow-y-auto space-y-2">
+            <ResizablePanel defaultSize={30} minSize={15} maxSize={50}>
+              <div className="h-full overflow-y-auto space-y-2 pl-2">
               {/* Relationship groups first (Members, Collaborations, Bands & Groups) */}
               {Array.from(
                 groupRelationshipsByType(
@@ -685,10 +698,14 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                           className={`flex items-center justify-between py-1 px-2 rounded cursor-pointer transition-colors ${
                             selectedNodeId === relatedArtist.id
                               ? 'bg-orange-100 hover:bg-orange-200'
+                              : hoveredArtistId === relatedArtist.id
+                              ? 'bg-purple-50'
                               : 'hover:bg-gray-50'
                           }`}
                           onClick={() => handleSidebarNodeSelect(relatedArtist)}
                           onDoubleClick={() => handleSidebarNodeNavigate(relatedArtist)}
+                          onMouseEnter={() => setHoveredArtistId(relatedArtist.id)}
+                          onMouseLeave={() => setHoveredArtistId(null)}
                           title="Click to highlight in graph, double-click to navigate"
                         >
                           <div className="flex-1 min-w-0">
@@ -798,18 +815,21 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
 
               {/* Recent Shows at the bottom */}
               <RecentConcerts artistName={artist.name} maxDisplay={5} />
-            </div>
+              </div>
+            </ResizablePanel>
           )}
-        </div>
+        </ResizablePanelGroup>
       )}
 
-      {/* Timeline Ribbon */}
+      {/* Timeline Ribbon - fixed position, height managed by timeline component */}
       <ArtistTimeline
         events={timelineEvents}
         isLoading={isTimelineLoading}
         yearRange={yearRange}
         onHighlightArtists={handleTimelineHighlight}
         highlightedAlbum={highlightedAlbum}
+        highlightedArtistIds={hoveredArtistId ? [hoveredArtistId] : undefined}
+        onHeightChange={setTimelineHeight}
       />
     </div>
   );

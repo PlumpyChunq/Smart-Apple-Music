@@ -14,7 +14,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-3">
+      <div className={`mx-auto py-3 ${selectedArtist ? 'px-4' : 'container px-4'}`}>
         <header className="flex items-center mb-4">
           <div className="w-48">
             {selectedArtist && (

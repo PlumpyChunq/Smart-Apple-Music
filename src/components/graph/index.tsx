@@ -1,9 +1,8 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useRef } from 'react';
 import { Core } from 'cytoscape';
 import { ArtistGraph, LayoutType } from './artist-graph';
-import { GraphControls } from './graph-controls';
 import type { ArtistGraph as ArtistGraphType, ArtistNode } from '@/types';
 import type { GraphFilterState } from './graph-filters';
 
@@ -14,6 +13,7 @@ interface GraphViewProps {
   onNodeClick?: (artist: ArtistNode | null) => void;
   onNodeExpand?: (artistId: string) => void;
   selectedNodeId?: string | null;
+  hoveredNodeId?: string | null;
   layoutType?: LayoutType;
   networkDepth?: number;
   onLayoutChange?: (layout: LayoutType) => void;
@@ -26,37 +26,13 @@ export function GraphView({
   onNodeClick,
   onNodeExpand,
   selectedNodeId,
+  hoveredNodeId,
   layoutType = 'auto',
   networkDepth = 1,
   onLayoutChange,
   filters,
 }: GraphViewProps) {
   const cyRef = useRef<Core | null>(null);
-
-  const handleZoomIn = useCallback(() => {
-    if (cyRef.current) {
-      cyRef.current.zoom(cyRef.current.zoom() * 1.2);
-    }
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    if (cyRef.current) {
-      cyRef.current.zoom(cyRef.current.zoom() / 1.2);
-    }
-  }, []);
-
-  const handleFit = useCallback(() => {
-    if (cyRef.current) {
-      cyRef.current.fit(undefined, 50);
-    }
-  }, []);
-
-  const handleReset = useCallback(() => {
-    if (cyRef.current) {
-      cyRef.current.reset();
-      cyRef.current.fit(undefined, 50);
-    }
-  }, []);
 
   if (isLoading) {
     return (
@@ -87,6 +63,7 @@ export function GraphView({
         onNodeClick={onNodeClick}
         onNodeExpand={onNodeExpand}
         selectedNodeId={selectedNodeId}
+        hoveredNodeId={hoveredNodeId}
         className="h-full"
         cyRef={cyRef}
         layoutType={layoutType}
@@ -94,18 +71,11 @@ export function GraphView({
         onLayoutChange={onLayoutChange}
         filters={filters}
       />
-      <GraphControls
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onFit={handleFit}
-        onReset={handleReset}
-      />
     </div>
   );
 }
 
 export { ArtistGraph } from './artist-graph';
 export type { LayoutType } from './artist-graph';
-export { GraphControls } from './graph-controls';
 export { GraphFilters, getDefaultFilters } from './graph-filters';
 export type { GraphFilterState } from './graph-filters';
