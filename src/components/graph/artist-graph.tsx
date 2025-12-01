@@ -456,8 +456,32 @@ export function ArtistGraph({
         const centerX = containerWidth / 2;
         const centerY = containerHeight / 2;
 
-        // Ring spacing - compact layout with tighter rings
-        const ringSpacing = isLarge ? 30 : isMedium ? 40 : 50;
+        // Minimum spacing between nodes on a ring (accounts for node size + label)
+        const minNodeSpacing = isLarge ? 50 : isMedium ? 60 : 70;
+        // Minimum ring spacing
+        const minRingSpacing = isLarge ? 80 : isMedium ? 100 : 120;
+
+        // Calculate cumulative radius for each depth based on node counts
+        let cumulativeRadius = 0;
+        const ringRadii = new Map<number, number>();
+
+        // Sort depths and calculate radii
+        const sortedDepths = Array.from(nodesByDepth.keys()).sort((a, b) => a - b);
+
+        sortedDepths.forEach((depth) => {
+          if (depth === 0) {
+            ringRadii.set(depth, 0);
+          } else {
+            const nodesAtDepth = nodesByDepth.get(depth)?.length || 1;
+            // Calculate minimum radius needed to fit all nodes with proper spacing
+            // Circumference = 2 * PI * r, so r = (nodeCount * spacing) / (2 * PI)
+            const radiusForSpacing = (nodesAtDepth * minNodeSpacing) / (2 * Math.PI);
+            // Use whichever is larger: minimum ring spacing or spacing-based radius
+            const ringIncrement = Math.max(minRingSpacing, radiusForSpacing - cumulativeRadius + minRingSpacing);
+            cumulativeRadius += ringIncrement;
+            ringRadii.set(depth, cumulativeRadius);
+          }
+        });
 
         nodesByDepth.forEach((nodeIds, depth) => {
           if (depth === 0) {
@@ -466,8 +490,8 @@ export function ArtistGraph({
               positions[id] = { x: centerX, y: centerY };
             });
           } else {
-            // Arrange nodes in a circle at this depth
-            const radius = depth * ringSpacing;
+            // Arrange nodes in a circle at this depth with calculated radius
+            const radius = ringRadii.get(depth) || depth * minRingSpacing;
             const nodeCount = nodeIds.length;
             const angleStep = (2 * Math.PI) / nodeCount;
             const startAngle = -Math.PI / 2; // Start from top
