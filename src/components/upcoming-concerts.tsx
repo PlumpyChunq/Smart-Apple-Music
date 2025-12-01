@@ -1,15 +1,15 @@
 'use client';
 
-import { useArtistConcerts, Concert, groupConcertsByMonth } from '@/lib/concerts';
+import { useArtistConcerts, Concert, RECENT_THRESHOLD_MS } from '@/lib/concerts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-interface UpcomingConcertsProps {
+interface RecentShowsProps {
   artistName: string;
   maxDisplay?: number;
 }
 
-export function UpcomingConcerts({ artistName, maxDisplay = 5 }: UpcomingConcertsProps) {
-  const { concerts, isLoading, error, upcomingCount } = useArtistConcerts(artistName);
+export function UpcomingConcerts({ artistName, maxDisplay = 5 }: RecentShowsProps) {
+  const { concerts, isLoading, error, upcomingCount: recentCount } = useArtistConcerts(artistName);
 
   if (isLoading) {
     return (
@@ -17,13 +17,14 @@ export function UpcomingConcerts({ artistName, maxDisplay = 5 }: UpcomingConcert
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <TicketIcon className="w-4 h-4" />
-            Upcoming Shows
+            Recent Shows
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-4">
-            <LoadingSpinner />
-            <span className="ml-2 text-sm text-gray-500">Loading shows...</span>
+        <CardContent className="pt-0">
+          <div className="space-y-3">
+            <ConcertSkeleton />
+            <ConcertSkeleton />
+            <ConcertSkeleton />
           </div>
         </CardContent>
       </Card>
@@ -40,17 +41,17 @@ export function UpcomingConcerts({ artistName, maxDisplay = 5 }: UpcomingConcert
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <TicketIcon className="w-4 h-4" />
-            Upcoming Shows
+            Recent Shows
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500">No upcoming shows announced</p>
+          <p className="text-sm text-gray-500">No recent shows found</p>
         </CardContent>
       </Card>
     );
   }
 
-  // Show limited concerts
+  // Show limited concerts (most recent first)
   const displayedConcerts = concerts.slice(0, maxDisplay);
   const hasMore = concerts.length > maxDisplay;
 
@@ -59,10 +60,10 @@ export function UpcomingConcerts({ artistName, maxDisplay = 5 }: UpcomingConcert
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <TicketIcon className="w-4 h-4" />
-          Upcoming Shows
-          {upcomingCount > 0 && (
-            <span className="ml-auto text-xs font-normal bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-              {upcomingCount} soon
+          Recent Shows
+          {recentCount > 0 && (
+            <span className="ml-auto text-xs font-normal bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+              {recentCount} in last 90 days
             </span>
           )}
         </CardTitle>
@@ -84,16 +85,21 @@ export function UpcomingConcerts({ artistName, maxDisplay = 5 }: UpcomingConcert
 }
 
 function ConcertItem({ concert }: { concert: Concert }) {
-  const isUpcoming = concert.date <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const threshold = new Date(now.getTime() - RECENT_THRESHOLD_MS);
+  const isRecent = concert.date >= threshold;
 
   return (
     <div className="flex items-start gap-3 group">
-      <div className={`flex-shrink-0 w-12 text-center ${isUpcoming ? 'text-green-600' : 'text-gray-500'}`}>
+      <div className={`flex-shrink-0 w-12 text-center ${isRecent ? 'text-blue-600' : 'text-gray-500'}`}>
         <div className="text-xs uppercase font-medium">
           {concert.date.toLocaleDateString('en-US', { month: 'short' })}
         </div>
         <div className="text-lg font-bold leading-tight">
           {concert.date.getDate()}
+        </div>
+        <div className="text-xs text-gray-400">
+          {concert.date.getFullYear()}
         </div>
       </div>
       <div className="flex-1 min-w-0">
@@ -113,7 +119,7 @@ function ConcertItem({ concert }: { concert: Concert }) {
           rel="noopener noreferrer"
           className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-800 hover:underline opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          Tickets
+          Setlist
         </a>
       )}
     </div>
@@ -139,27 +145,20 @@ function TicketIcon({ className }: { className?: string }) {
   );
 }
 
-function LoadingSpinner() {
+/** Skeleton loading state that mimics the ConcertItem layout */
+function ConcertSkeleton() {
   return (
-    <svg
-      className="animate-spin h-4 w-4 text-gray-400"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
+    <div className="flex items-start gap-3 animate-pulse">
+      {/* Date skeleton */}
+      <div className="flex-shrink-0 w-12 text-center">
+        <div className="h-3 w-8 mx-auto bg-gray-200 rounded mb-1" />
+        <div className="h-5 w-6 mx-auto bg-gray-200 rounded" />
+      </div>
+      {/* Venue info skeleton */}
+      <div className="flex-1 min-w-0">
+        <div className="h-4 w-3/4 bg-gray-200 rounded mb-2" />
+        <div className="h-3 w-1/2 bg-gray-200 rounded" />
+      </div>
+    </div>
   );
 }

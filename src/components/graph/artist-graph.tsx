@@ -14,12 +14,19 @@ if (typeof cytoscape('core', 'dagre') === 'undefined') {
   cytoscape.use(dagre);
 }
 
+// Constants for viewport threshold calculations
+/** Threshold for determining if a node is in the "outer" region of viewport (triggers panning) */
+const VIEWPORT_OUTER_THRESHOLD = 0.6;
+/** How much to pan toward a selected node (percentage of distance) */
+const PAN_DISTANCE_FACTOR = 0.3;
+
 // Layout types available to users
 export type LayoutType = 'auto' | 'radial' | 'force' | 'hierarchical' | 'concentric' | 'spoke';
 
 interface ArtistGraphProps {
   graph: ArtistGraphType;
-  onNodeClick?: (artist: ArtistNode) => void;
+  /** Called when a node is clicked. Receives null when clicking the background to clear selection. */
+  onNodeClick?: (artist: ArtistNode | null) => void;
   onNodeExpand?: (artistId: string) => void;
   selectedNodeId?: string | null;
   className?: string;
@@ -30,7 +37,7 @@ interface ArtistGraphProps {
 }
 
 // Cytoscape stylesheet
-const cytoscapeStyle: cytoscape.StylesheetStyle[] = [
+const cytoscapeStyle = [
   // Node base styles
   {
     selector: 'node',
@@ -230,7 +237,13 @@ export function ArtistGraph({
   const [isLayouting, setIsLayouting] = useState(false);
   const [currentLayout, setCurrentLayout] = useState<LayoutType>(layoutType);
 
-  // Refs for callbacks to avoid re-initializing cytoscape when callbacks change
+  /**
+   * Callback refs pattern: Store callbacks in refs and update them on every render.
+   * This allows the Cytoscape initialization useEffect to access the latest callbacks
+   * without including them in the dependency array (which would cause Cytoscape to
+   * reinitialize on every callback change, losing graph state and causing flickering).
+   * The event handlers read from these refs, so they always call the current callback.
+   */
   const onNodeClickRef = useRef(onNodeClick);
   const onNodeExpandRef = useRef(onNodeExpand);
   onNodeClickRef.current = onNodeClick;
@@ -294,8 +307,9 @@ export function ArtistGraph({
     const visited = new Set<string>([rootId]);
 
     while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      const currentDepth = depths.get(currentId)!;
+      const currentId = queue.shift();
+      if (!currentId) continue;
+      const currentDepth = depths.get(currentId) ?? 0;
       const currentNode = cy.$(`#${currentId}`);
 
       // Get all connected nodes (neighbors)
@@ -330,23 +344,26 @@ export function ArtistGraph({
 
     switch (effectiveLayout) {
       case 'force':
-        // Cola force-directed layout - organic, interactive
+        // COSE force-directed layout - physics simulation with node repulsion
         return {
-          name: 'cola',
+          name: 'cose',
           animate: true,
-          refresh: 1,
-          maxSimulationTime: isLarge ? 2000 : 4000,
-          ungrabifyWhileSimulating: false,
+          animationDuration: 1000,
+          animationEasing: 'ease-out',
           fit: true,
           padding: 30,
-          nodeSpacing: () => isLarge ? 30 : isMedium ? 50 : 80,
-          edgeLength: isLarge ? 100 : isMedium ? 150 : 200,
-          centerGraph: true,
-          handleDisconnected: true,
-          convergenceThreshold: 0.01,
-          avoidOverlap: true,
-          infinite: false,
-          randomize: false,
+          // Physics simulation settings
+          nodeRepulsion: () => isLarge ? 8000 : isMedium ? 12000 : 20000,
+          nodeOverlap: 20,
+          idealEdgeLength: () => isLarge ? 80 : isMedium ? 120 : 160,
+          edgeElasticity: () => isLarge ? 80 : 100,
+          nestingFactor: 1.2,
+          gravity: 0.25,
+          numIter: isLarge ? 500 : 1000,
+          initialTemp: 200,
+          coolingFactor: 0.95,
+          minTemp: 1.0,
+          randomize: true,
         } as unknown as cytoscape.LayoutOptions;
 
       case 'hierarchical':
@@ -399,10 +416,12 @@ export function ArtistGraph({
         // Group nodes by depth
         const nodesByDepth = new Map<number, string[]>();
         spokeDepths.forEach((depth, nodeId) => {
-          if (!nodesByDepth.has(depth)) {
-            nodesByDepth.set(depth, []);
+          const existing = nodesByDepth.get(depth);
+          if (existing) {
+            existing.push(nodeId);
+          } else {
+            nodesByDepth.set(depth, [nodeId]);
           }
-          nodesByDepth.get(depth)!.push(nodeId);
         });
 
         // Calculate positions for each node
@@ -500,6 +519,13 @@ export function ArtistGraph({
     }
   }, [onLayoutChange, getLayoutOptions]);
 
+  // Sync internal layout state when layoutType prop changes from parent
+  useEffect(() => {
+    if (layoutType !== currentLayout) {
+      handleLayoutChange(layoutType);
+    }
+  }, [layoutType, currentLayout, handleLayoutChange]);
+
   // Run layout function
   const runLayout = useCallback(() => {
     if (!cyRef.current || isDestroyedRef.current) return;
@@ -551,7 +577,8 @@ export function ArtistGraph({
     const cy = cytoscape({
       container: containerRef.current,
       elements: convertToElements(),
-      style: cytoscapeStyle,
+      // Type assertion needed: cytoscape's types are overly strict for style values
+      style: cytoscapeStyle as cytoscape.StylesheetStyle[],
       layout: { name: 'preset' },
       minZoom: 0.1,
       maxZoom: 4,
@@ -621,8 +648,7 @@ export function ArtistGraph({
       if (isDestroyedRef.current) return;
       // Only trigger if clicking on background (not a node or edge)
       if (event.target === cy && onNodeClickRef.current) {
-        // Pass null to indicate background click (clear selection)
-        onNodeClickRef.current(null as unknown as ArtistNode);
+        onNodeClickRef.current(null);
       }
     });
 
@@ -647,7 +673,9 @@ export function ArtistGraph({
       }
       cyRef.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks use refs to avoid reinitializing
+    // Intentionally omitting onNodeClick/onNodeExpand from deps: they're accessed via refs
+    // (see callback refs pattern comment above) to prevent Cytoscape reinitialization.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convertToElements, getLayoutOptions]);
 
   // Update selection when selectedNodeId changes
@@ -697,14 +725,14 @@ export function ArtistGraph({
           const viewWidth = extent.x2 - extent.x1;
           const viewHeight = extent.y2 - extent.y1;
 
-          // Only nudge if node is in outer 40% of viewport
+          // Only nudge if node is in outer region of viewport
           const distFromCenterX = Math.abs(nodePos.x - viewCenterX) / (viewWidth / 2);
           const distFromCenterY = Math.abs(nodePos.y - viewCenterY) / (viewHeight / 2);
 
-          if (distFromCenterX > 0.6 || distFromCenterY > 0.6) {
-            // Pan 30% of the way toward the selected node
-            const newCenterX = viewCenterX + (nodePos.x - viewCenterX) * 0.3;
-            const newCenterY = viewCenterY + (nodePos.y - viewCenterY) * 0.3;
+          if (distFromCenterX > VIEWPORT_OUTER_THRESHOLD || distFromCenterY > VIEWPORT_OUTER_THRESHOLD) {
+            // Pan partially toward the selected node
+            const newCenterX = viewCenterX + (nodePos.x - viewCenterX) * PAN_DISTANCE_FACTOR;
+            const newCenterY = viewCenterY + (nodePos.y - viewCenterY) * PAN_DISTANCE_FACTOR;
             cy.animate({
               pan: {
                 x: cy.pan().x - (newCenterX - viewCenterX) * cy.zoom(),

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useArtistSearch } from '@/lib/musicbrainz/hooks';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FavoritesUpcomingShows } from '@/components/favorites-upcoming-shows';
 import type { ArtistNode } from '@/types';
 
 // localStorage keys
@@ -133,6 +134,12 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
     }
   }, []);
 
+  // Extract artist names for the concerts hook
+  const favoriteArtistNames = useMemo(
+    () => favorites.map((f) => f.name),
+    [favorites]
+  );
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
       <div className="flex gap-2">
@@ -198,6 +205,11 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Recent Shows from Favorites */}
+      {favoriteArtistNames.length > 0 && !searchQuery && (
+        <FavoritesUpcomingShows artistNames={favoriteArtistNames} />
       )}
 
       {error && (

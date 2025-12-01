@@ -592,9 +592,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
           {/* List Sidebar */}
           {showList && (
             <div className="w-72 flex-shrink-0 h-full overflow-y-auto space-y-2">
-              {/* Upcoming Concerts */}
-              <UpcomingConcerts artistName={artist.name} maxDisplay={5} />
-
+              {/* Relationship groups first (Members, Collaborations, Bands & Groups) */}
               {Array.from(
                 groupRelationshipsByType(
                   data.relationships,
@@ -656,6 +654,9 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                   </CardContent>
                 </Card>
               ))}
+
+              {/* Recent Shows at the bottom */}
+              <UpcomingConcerts artistName={artist.name} maxDisplay={5} />
             </div>
           )}
         </div>

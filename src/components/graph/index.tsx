@@ -9,7 +9,8 @@ import type { ArtistGraph as ArtistGraphType, ArtistNode } from '@/types';
 interface GraphViewProps {
   graph: ArtistGraphType;
   isLoading?: boolean;
-  onNodeClick?: (artist: ArtistNode) => void;
+  /** Called when a node is clicked. Receives null when clicking the background to clear selection. */
+  onNodeClick?: (artist: ArtistNode | null) => void;
   onNodeExpand?: (artistId: string) => void;
   selectedNodeId?: string | null;
   layoutType?: LayoutType;
@@ -99,5 +100,6 @@ export function GraphView({
   );
 }
 
-export { ArtistGraph, LayoutType } from './artist-graph';
+export { ArtistGraph } from './artist-graph';
+export type { LayoutType } from './artist-graph';
 export { GraphControls } from './graph-controls';

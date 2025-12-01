@@ -1,35 +1,33 @@
 /**
- * Bandsintown API client for fetching upcoming concerts/tours
- * API docs: https://app.swaggerhub.com/apis/Bandsintown/PublicAPI/3.0.1
+ * Setlist.fm API client for fetching recent concerts/tours
+ * Uses a server-side API route to avoid CORS issues
+ * API docs: https://api.setlist.fm/docs/1.0/ui/index.html
  */
 
-const BANDSINTOWN_BASE_URL = 'https://rest.bandsintown.com';
-const APP_ID = 'SmartAppleMusic';
+/** Threshold for "recent" shows - 90 days in milliseconds */
+export const RECENT_THRESHOLD_MS = 90 * 24 * 60 * 60 * 1000;
 
-export interface BandsintownEvent {
+export interface SetlistEvent {
   id: string;
-  artist_id: string;
-  url: string;
-  on_sale_datetime: string;
   datetime: string;
-  title: string;
-  description: string;
   venue: {
     name: string;
-    location: string;
     city: string;
     region: string;
     country: string;
-    latitude: string;
-    longitude: string;
   };
-  lineup: string[];
+  title: string;
+  url: string;
   offers: Array<{
     type: string;
     url: string;
     status: string;
   }>;
+  lineup: string[];
 }
+
+// Keep the old interface name for compatibility
+export interface BandsintownEvent extends SetlistEvent {}
 
 export interface Concert {
   id: string;
@@ -45,42 +43,34 @@ export interface Concert {
 }
 
 /**
- * Fetch upcoming events for an artist from Bandsintown
+ * Fetch recent shows for an artist via our API route (avoids CORS)
  */
 export async function getArtistEvents(artistName: string): Promise<Concert[]> {
   try {
-    // URL encode the artist name
     const encodedName = encodeURIComponent(artistName);
-    const url = `${BANDSINTOWN_BASE_URL}/artists/${encodedName}/events?app_id=${APP_ID}`;
+    const url = `/api/concerts?artist=${encodedName}`;
 
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-      },
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
       if (response.status === 404) {
-        // Artist not found on Bandsintown
         return [];
       }
-      throw new Error(`Bandsintown API error: ${response.status}`);
+      throw new Error(`Concert API error: ${response.status}`);
     }
 
     const data = await response.json();
 
-    // API returns an object with message when no events, or array of events
+    // API returns an object with error when failed, or array of events
     if (!Array.isArray(data)) {
       return [];
     }
 
-    const events: BandsintownEvent[] = data;
+    const events: SetlistEvent[] = data;
 
     // Transform to our Concert format
     return events.map((event): Concert => {
       const date = new Date(event.datetime);
-      const ticketOffer = event.offers?.find(o => o.status === 'available');
 
       return {
         id: event.id,
@@ -90,8 +80,8 @@ export async function getArtistEvents(artistName: string): Promise<Concert[]> {
         city: event.venue.city,
         region: event.venue.region,
         country: event.venue.country,
-        title: event.title || `${event.venue.name}`,
-        ticketUrl: ticketOffer?.url || event.url || null,
+        title: event.title || event.venue.name,
+        ticketUrl: event.url || null,
         lineup: event.lineup || [],
       };
     });
