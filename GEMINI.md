@@ -54,7 +54,7 @@ I strongly endorse this plan. The biggest bottleneck is the MusicBrainz API rate
 
 ## 4. Proposed Enhancement: Gemini-Powered Narrative Discovery
 
-The project is named "Smart" Apple Music. Let's make it smarter. Once the local database is operational and can provide rich, interconnected data, we can introduce a Large Language Model (LLM) to add a unique discovery layer.
+InterChord visualizes connections. Let's make it narrate them too. Once the local database is operational and can provide rich, interconnected data, we can introduce a Large Language Model (LLM) to add a unique discovery layer.
 
 **Vision:** Instead of just showing a graph, the application could generate a narrative summary of the connections between artists.
 
