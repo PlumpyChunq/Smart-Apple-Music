@@ -1,5 +1,7 @@
 # Smart Apple Music - Music Discovery & Artist Relationship Mapping
 
+> **Last Updated:** 2025-12-01 | **Current Phase:** 3 - Extended Discovery
+
 ## Quick Reference
 
 ```bash
@@ -15,6 +17,14 @@ pnpm test:run     # Run tests once
 
 A music discovery application that visualizes artist relationships through interactive graphs. Built with Next.js 16, Cytoscape.js for graph visualization, and MusicBrainz/Setlist.fm APIs for data.
 
+> **📋 See `PROGRESS.md` for:**
+> - Current phase status and detailed roadmap (Phases 0-7)
+> - Session notes and development history
+> - Quick resume information for continuing work
+> - Detailed task checklists per phase
+>
+> **Always update PROGRESS.md before/after completing tasks.**
+
 **Key Features (Implemented):**
 - Artist search with MusicBrainz disambiguation
 - Interactive artist relationship graph with multiple layouts (Force/COSE, Hierarchical/Dagre, Concentric, Spoke)
@@ -23,14 +33,16 @@ A music discovery application that visualizes artist relationships through inter
 - Recent shows from Setlist.fm API
 - Tour date links to Songkick
 
-## Current Status
+## Current Status (Phase 3)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Artist Search | ✅ DONE | MusicBrainz with rate limiting |
 | Relationship Graph | ✅ DONE | Cytoscape.js with 4 layout options |
+| Graph Filters | ✅ DONE | Relationship type + temporal filtering |
 | Favorites System | ✅ DONE | localStorage, displayed on home |
 | Recent Shows | ✅ DONE | Setlist.fm API (past shows only) |
+| Artist Timeline | ✅ DONE | Album visualizations with cover art |
 | Upcoming Shows | ⏳ PENDING | Waiting for SeatGeek API approval |
 | Apple Music Integration | FUTURE | Requires $99/year investment |
 
@@ -199,8 +211,15 @@ SETLIST_FM_API_KEY=your_api_key_here
 
 ## Future Improvements
 
+See `PROGRESS.md` for the complete roadmap (Phases 3-7). Key upcoming items:
+
 - [ ] SeatGeek API integration for upcoming concerts (waiting for approval)
 - [ ] Real-time force layout with d3-force
+- [ ] MusicBrainz database mirror (eliminates rate limits)
 - [ ] Apple Music integration ($99/year developer program)
 - [ ] PostgreSQL for persistent favorites/user data
-- use Playwright when needed
+
+## Development Notes
+
+- Use Playwright MCP for browser testing when needed
+- Confluence documentation: [Smart-Apple-Music Project](https://stonefrog.atlassian.net/wiki/spaces/STONEFROG/pages/1936752642)

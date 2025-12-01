@@ -1,8 +1,8 @@
 # Smart Apple Music - Project Progress
 
-> Last Updated: 2025-11-30
+> Last Updated: 2025-12-01
 
-## Current Status: **Phase 2 - Graph Visualization Complete**
+## Current Status: **Phase 3 - Extended Discovery (In Progress)**
 
 ---
 
@@ -85,9 +85,25 @@ Leverage ALL MusicBrainz relationship types for richer discovery:
 - [ ] "6 degrees of separation" pathfinding
 
 #### UI Enhancements
-- [ ] Filter graph by relationship type
+- [x] Filter graph by relationship type
+- [x] Temporal filtering
 - [ ] Discovery results panel
 - [ ] "Explore connections" mode
+
+#### Concert Integration (Added)
+- [x] Setlist.fm API integration for past concerts
+- [x] Server-side proxy route to avoid CORS
+- [x] Recent shows display in artist detail
+- [x] Favorites aggregation showing shows from all favorited artists
+- [ ] SeatGeek API for upcoming concerts (waiting for approval)
+
+#### Artist Timeline (Moved up from Future)
+- [x] Full-width responsive timeline panel
+- [x] Album release visualizations with cover art
+- [x] Reactive to browser resize
+- [x] Fallback image APIs with proxy routes
+- [ ] Member tenure visualization
+- [ ] Event filtering (albums only, members only)
 
 ---
 
@@ -165,38 +181,15 @@ Leverage ALL MusicBrainz relationship types for richer discovery:
 - [ ] Playlist creation/sync
 - [ ] Playback integration
 
-### Future: Band Timeline Component
-A horizontal timeline panel at the bottom of the artist detail page showing the band's history:
+### Future: Band Timeline Component (PARTIALLY IMPLEMENTED - See Phase 3)
+**Note:** Basic timeline with album visualizations has been implemented in Phase 3. Remaining items:
 
-#### Visual Design
-- **Full-width responsive panel** - Stretches edge-to-edge at the bottom of the page
-- **Reactive to browser resize** - Timeline automatically adjusts width as window is resized
-- Spans from band formation to present (or dissolution)
-- Interactive zoom/scroll for detailed exploration
-- Fixed height (~150-200px) with the graph/members section above
-
-#### Timeline Events to Display
-- [ ] **Band Formation** - Start date with founding members
-- [ ] **Album Releases** - Major releases with cover art thumbnails
-- [ ] **Member Changes** - Joins, departures, lineup changes
+#### Remaining Timeline Features
+- [ ] **Member Changes** - Joins, departures, lineup changes visualization
 - [ ] **Pivotal Moments** - Major tours, breakthrough events
 - [ ] **Hiatus Periods** - Visual gaps or different styling
-- [ ] **Band End** - Dissolution date (if applicable)
-
-#### Data Sources
-- MusicBrainz: Formation dates, member tenure, release dates
-- Discogs: Album release dates, detailed discography
-- Wikidata: Major events, tours, awards
-- Wikipedia: Historical context (via Wikidata links)
-
-#### Technical Implementation
-- [ ] Research timeline visualization libraries (vis-timeline, react-chrono, etc.)
-- [ ] Aggregate event data from MusicBrainz releases + relationships
-- [ ] **Full-width CSS layout** - Use `w-full` / `100vw` to span entire viewport width
-- [ ] **ResizeObserver integration** - React to browser resize events (like the graph)
-- [ ] Add event filtering (albums only, members only, etc.)
 - [ ] Sync timeline position with graph selection (click member → highlight tenure)
-- [ ] Responsive breakpoints for mobile (collapse to vertical or simplified view)
+- [ ] Event filtering (albums only, members only, etc.)
 
 #### Example: Butthole Surfers Timeline
 ```
@@ -440,16 +433,38 @@ user_annotations
 - Added Proxmox VM requirements for Bluemont lab
 - **Research complete, roadmap updated!**
 
+### 2025-11-29 to 2025-12-01 (Sessions 6-8)
+- **Setlist.fm Integration:**
+  - Created `/api/concerts` proxy route to avoid CORS issues
+  - Added `useArtistConcerts` and `useMultipleArtistsConcerts` hooks
+  - Integrated recent shows into artist detail sidebar
+  - Added favorites aggregation showing shows from all favorited artists
+- **Artist Timeline Feature (moved up from Future):**
+  - Created album visualizations with timeline view
+  - Full-width responsive timeline panel
+  - Album cover art display with fallback image APIs
+  - Proxy routes for Cover Art Archive, MusicBrainz, and iTunes images
+- **Graph Enhancements:**
+  - Added graph filters for relationship types
+  - Added temporal filtering
+  - Reduced header space, moved back button to top-left
+- **UI Polish:**
+  - Enhanced album display with multiple fallback image sources
+  - Improved layout and spacing
+- Updated Confluence documentation with full project phases
+- **Phase 3 Extended Discovery in progress!**
+
 ---
 
 ## Quick Resume
 
-**Next task:** Phase 3 - Extended Discovery (expand MusicBrainz relationship types)
+**Next task:** Continue Phase 3 - Extended Discovery
 
 **Immediate priorities:**
-1. Add Artist-Recording relationships (guest appearances, producers)
-2. Add Artist-Label relationships (labelmates)
-3. Build discovery algorithms (side projects, collaborator chains)
+1. Complete Artist Timeline (member tenure visualization)
+2. Add Artist-Recording relationships (guest appearances, producers)
+3. Add Artist-Label relationships (labelmates)
+4. Build discovery algorithms (side projects, collaborator chains)
 
 **Future priority (after basic discovery):**
 - Phase 4: MusicBrainz Database Mirror in Proxmox VM (eliminates rate limits!)
@@ -460,10 +475,13 @@ user_annotations
 - `PROGRESS.md` - This file (keep updated!)
 - `src/lib/musicbrainz/client.ts` - MusicBrainz API client with rate limiting
 - `src/lib/musicbrainz/hooks.ts` - TanStack Query hooks
+- `src/lib/concerts/` - Setlist.fm client and hooks
 - `src/components/artist-search.tsx` - Search interface
 - `src/components/artist-detail.tsx` - Artist detail with List/Graph toggle
 - `src/components/graph/artist-graph.tsx` - Cytoscape.js wrapper
 - `src/components/graph/index.tsx` - GraphView with controls
+- `src/app/api/concerts/route.ts` - Setlist.fm proxy API
+- `src/app/api/images/` - Album artwork proxy routes
 - `src/types/index.ts` - TypeScript definitions
 
 **To test:** `pnpm dev` then open http://localhost:3000
@@ -472,8 +490,12 @@ user_annotations
 - Toggle between **List** and **Graph** views
 - In List view: Members sorted with Founding/Current badges and tenure years
 - In Graph view: Interactive node graph with band as center, members as connected nodes
+- **NEW:** View artist timeline with album visualizations
+- **NEW:** See recent shows from Setlist.fm in the detail sidebar
+- **NEW:** Filter graph by relationship type and time period
 - Double-click on a member node to expand their relationships
 - Click on any artist to navigate to their detail page
+- Add artists to favorites and see aggregated recent shows on home page
 
 **MusicBrainz VM Quick Setup (Phase 4):**
 ```bash
