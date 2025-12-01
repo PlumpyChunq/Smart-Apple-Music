@@ -3,18 +3,16 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useArtistRelationships } from '@/lib/musicbrainz/hooks';
 import { useEnrichedArtist } from '@/lib/apple-music';
-// Card components now handled by CollapsibleSection
-import { CollapsibleSection } from '@/components/ui/collapsible-section';
-import { useSidebarPreferences, type SectionId } from '@/lib/sidebar';
 import { Button } from '@/components/ui/button';
 import { GraphView, LayoutType, GraphFilters, getDefaultFilters, type GraphFilterState } from '@/components/graph';
 import { addToFavorites, removeFromFavorites, isFavorite } from '@/components/artist-search';
+import { SidebarSections } from '@/components/sidebar-sections';
 import type { ArtistNode, ArtistRelationship, ArtistGraph } from '@/types';
 import { getArtistRelationships } from '@/lib/musicbrainz/client';
-import { RecentConcerts } from '@/components/recent-concerts';
 import { useArtistTimeline } from '@/lib/timeline';
 import { ArtistTimeline, TIMELINE_DEFAULT_HEIGHT } from '@/components/timeline';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { parseYear } from '@/lib/utils';
 
 interface ArtistDetailProps {
   artist: ArtistNode;
@@ -84,11 +82,11 @@ function extractInstruments(attributes?: string[]): string[] {
 }
 
 function formatTenure(begin?: string, end?: string | null): string {
-  if (!begin) return '';
-  const startYear = begin.substring(0, 4);
-  if (end) {
-    const endYear = end.substring(0, 4);
-    return startYear === endYear ? startYear : `${startYear}–${endYear}`;
+  const startYear = parseYear(begin);
+  if (!startYear) return '';
+  const endYear = parseYear(end);
+  if (endYear) {
+    return startYear === endYear ? String(startYear) : `${startYear}–${endYear}`;
   }
   return `${startYear}–present`;
 }
@@ -104,7 +102,7 @@ function isFoundingMember(
   );
   if (hasFoundingAttribute) return true;
 
-  const startYear = rel.period?.begin ? parseInt(rel.period.begin.substring(0, 4)) : 9999;
+  const startYear = parseYear(rel.period?.begin) ?? 9999;
   return startYear <= earliestYear + 1;
 }
 
@@ -112,12 +110,12 @@ function getEarliestMemberYear(
   relationships: ArtistRelationship[],
   bandStartYear?: string
 ): number {
-  let earliestYear = bandStartYear ? parseInt(bandStartYear.substring(0, 4)) : 9999;
+  let earliestYear = parseYear(bandStartYear) ?? 9999;
 
   for (const rel of relationships) {
-    if (rel.type === 'member_of' && rel.period?.begin) {
-      const year = parseInt(rel.period.begin.substring(0, 4));
-      if (year < earliestYear) earliestYear = year;
+    if (rel.type === 'member_of') {
+      const year = parseYear(rel.period?.begin);
+      if (year && year < earliestYear) earliestYear = year;
     }
   }
 
@@ -142,7 +140,7 @@ function groupRelationshipsByType(
         grouped.set(type, []);
       }
 
-      const startYear = rel.period?.begin ? parseInt(rel.period.begin.substring(0, 4)) : 9999;
+      const startYear = parseYear(rel.period?.begin) ?? 9999;
       const founding = isFoundingMember(rel, earliestYear);
       const isCurrent = !rel.period?.end;
       const tenure = formatTenure(rel.period?.begin, rel.period?.end);
@@ -271,10 +269,6 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   const [graphFilters, setGraphFilters] = useState<GraphFilterState>(getDefaultFilters);
   const [highlightedAlbum, setHighlightedAlbum] = useState<{ name: string; year: number } | null>(null);
   const [timelineHeight, setTimelineHeight] = useState(TIMELINE_DEFAULT_HEIGHT);
-
-  // Sidebar section preferences (collapse state, order)
-  const sidebarPrefs = useSidebarPreferences();
-  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   // Check if artist is favorite on mount
   useEffect(() => {
@@ -705,193 +699,24 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
           {showList && (
             <ResizablePanel defaultSize={30} minSize={15} maxSize={50}>
               <div className="h-full overflow-y-auto space-y-2 pl-2">
-              {(() => {
-                // Build section content map
-                const relationshipGroups = groupRelationshipsByType(
-                  data.relationships,
-                  data.relatedArtists,
-                  data.artist.activeYears?.begin
-                );
-
-                // Helper to render relationship items
-                const renderRelationshipItems = (items: ReturnType<typeof groupRelationshipsByType> extends Map<string, infer V> ? V : never) => (
-                  <div className="space-y-1">
-                    {items.map(({ relationship, artist: relatedArtist, isFoundingMember: founding, isCurrent, tenure }) => {
-                      const isInYearRange = !graphFilters.yearRange || (() => {
-                        const filterMin = graphFilters.yearRange!.min;
-                        const filterMax = graphFilters.yearRange!.max;
-                        const beginYear = relationship.period?.begin ? parseInt(relationship.period.begin.substring(0, 4)) : null;
-                        const endYear = relationship.period?.end ? parseInt(relationship.period.end.substring(0, 4)) : null;
-                        if (beginYear && beginYear > filterMax) return false;
-                        if (endYear && endYear < filterMin) return false;
-                        return true;
-                      })();
-
-                      return (
-                        <div
-                          key={relationship.id}
-                          className={`flex items-center justify-between py-1 px-2 rounded cursor-pointer transition-all ${
-                            selectedNodeId === relatedArtist.id
-                              ? 'bg-orange-100 hover:bg-orange-200'
-                              : hoveredArtistId === relatedArtist.id
-                              ? 'bg-purple-50'
-                              : 'hover:bg-gray-50'
-                          } ${isInYearRange ? '' : 'opacity-30'}`}
-                          onClick={() => handleSidebarNodeSelect(relatedArtist)}
-                          onDoubleClick={() => handleSidebarNodeNavigate(relatedArtist)}
-                          onMouseEnter={() => setHoveredArtistId(relatedArtist.id)}
-                          onMouseLeave={() => setHoveredArtistId(null)}
-                          title="Click to highlight in graph, double-click to navigate"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1 flex-wrap">
-                              <span className="font-medium truncate">{relatedArtist.name}</span>
-                              {founding && (
-                                <span className="px-1 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">F</span>
-                              )}
-                              {isCurrent && (
-                                <span className="px-1 py-0.5 bg-green-100 text-green-800 rounded text-xs">C</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-400 truncate">
-                              {relationship.attributes && extractInstruments(relationship.attributes).length > 0
-                                ? extractInstruments(relationship.attributes).join(', ')
-                                : '—'}
-                            </p>
-                          </div>
-                          {tenure && (
-                            <span className="text-xs text-gray-400 ml-2 flex-shrink-0">{tenure}</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-
-                // Helper to render albums
-                const renderAlbums = () => (
-                  <div className="grid grid-cols-3 gap-2">
-                    {[...displayArtist.albums!]
-                      .sort((a, b) => {
-                        const yearA = a.releaseDate ? parseInt(a.releaseDate.substring(0, 4)) : 0;
-                        const yearB = b.releaseDate ? parseInt(b.releaseDate.substring(0, 4)) : 0;
-                        return yearA - yearB;
-                      })
-                      .map((album) => {
-                        const musicUrl = `https://music.youtube.com/search?q=${encodeURIComponent(`${displayArtist.name} ${album.name}`)}`;
-                        const albumYear = album.releaseDate ? parseInt(album.releaseDate.substring(0, 4)) : null;
-                        const isAlbumInRange = !graphFilters.yearRange || !albumYear ||
-                          (albumYear >= graphFilters.yearRange.min && albumYear <= graphFilters.yearRange.max);
-
-                        return (
-                          <a
-                            key={album.id}
-                            href={musicUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`text-center group cursor-pointer block transition-opacity ${isAlbumInRange ? '' : 'opacity-30'}`}
-                            onMouseEnter={() => albumYear && onHighlightAlbum?.(album.name, albumYear)}
-                            onMouseLeave={() => onHighlightAlbum?.(null, null)}
-                          >
-                            {album.artworkUrl ? (
-                              <img
-                                src={album.artworkUrl}
-                                alt={album.name}
-                                className="w-full aspect-square rounded shadow-sm object-cover group-hover:ring-2 group-hover:ring-blue-400 transition-all"
-                              />
-                            ) : (
-                              <div className="w-full aspect-square rounded bg-gray-100 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition-all">
-                                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                                </svg>
-                              </div>
-                            )}
-                            <p className="text-xs mt-1 truncate group-hover:text-blue-600" title={album.name}>{album.name}</p>
-                            {album.releaseDate && <p className="text-xs text-gray-400">{album.releaseDate.substring(0, 4)}</p>}
-                          </a>
-                        );
-                      })}
-                  </div>
-                );
-
-                // Build sections array with content
-                type SectionData = { id: SectionId; title: string; count?: number; content: React.ReactNode };
-                const allSections: SectionData[] = [];
-
-                // Add relationship sections
-                for (const [type, items] of relationshipGroups) {
-                  allSections.push({
-                    id: type as SectionId,
-                    title: getRelationshipLabel(type, artist.type),
-                    count: items.length,
-                    content: renderRelationshipItems(items),
-                  });
-                }
-
-                // Add albums section
-                if (displayArtist.albums && displayArtist.albums.length > 0) {
-                  allSections.push({
-                    id: 'albums',
-                    title: 'Albums',
-                    count: displayArtist.albums.length,
-                    content: renderAlbums(),
-                  });
-                }
-
-                // Add shows section
-                allSections.push({
-                  id: 'shows',
-                  title: 'Recent Shows',
-                  content: <RecentConcerts artistName={artist.name} mbid={artist.id} maxDisplay={5} />,
-                });
-
-                // Sort by user preferences order
-                const sectionMap = new Map(allSections.map(s => [s.id, s]));
-                const orderedSections = sidebarPrefs.order
-                  .filter(id => sectionMap.has(id))
-                  .map(id => sectionMap.get(id)!);
-
-                // Add any sections not in the order (new types)
-                for (const section of allSections) {
-                  if (!sidebarPrefs.order.includes(section.id)) {
-                    orderedSections.push(section);
-                  }
-                }
-
-                // Drag handlers - use section IDs for reliable reordering
-                const handleDragStart = (index: number) => setDraggingIndex(index);
-                const handleDrop = (fromIndex: number, toIndex: number, position: 'above' | 'below') => {
-                  const fromSection = orderedSections[fromIndex];
-                  const toSection = orderedSections[toIndex];
-                  if (fromSection && toSection && fromSection.id !== toSection.id) {
-                    sidebarPrefs.reorder(fromSection.id, toSection.id, position);
-                  }
-                  setDraggingIndex(null);
-                };
-                const handleDragEnd = () => setDraggingIndex(null);
-
-                return orderedSections.map((section, index) => (
-                  <CollapsibleSection
-                    key={section.id}
-                    id={section.id}
-                    title={section.title}
-                    count={section.count}
-                    isCollapsed={sidebarPrefs.isCollapsed(section.id)}
-                    onToggle={() => sidebarPrefs.toggle(section.id)}
-                    onMoveUp={() => sidebarPrefs.moveUp(section.id)}
-                    onMoveDown={() => sidebarPrefs.moveDown(section.id)}
-                    canMoveUp={index > 0}
-                    canMoveDown={index < orderedSections.length - 1}
-                    index={index}
-                    onDragStart={handleDragStart}
-                    onDrop={handleDrop}
-                    onDragEnd={handleDragEnd}
-                    isDragging={draggingIndex === index}
-                  >
-                    {section.content}
-                  </CollapsibleSection>
-                ));
-              })()}
+                <SidebarSections
+                  artist={artist}
+                  displayArtist={displayArtist}
+                  relationshipGroups={groupRelationshipsByType(
+                    data.relationships,
+                    data.relatedArtists,
+                    data.artist.activeYears?.begin
+                  )}
+                  graphFilters={graphFilters}
+                  selectedNodeId={selectedNodeId}
+                  hoveredArtistId={hoveredArtistId}
+                  onSidebarNodeSelect={handleSidebarNodeSelect}
+                  onSidebarNodeNavigate={handleSidebarNodeNavigate}
+                  onHoverArtist={setHoveredArtistId}
+                  onHighlightAlbum={onHighlightAlbum}
+                  getRelationshipLabel={getRelationshipLabel}
+                  extractInstruments={extractInstruments}
+                />
               </div>
             </ResizablePanel>
           )}

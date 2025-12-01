@@ -6,6 +6,7 @@ import cola from 'cytoscape-cola';
 import dagre from 'cytoscape-dagre';
 import type { ArtistGraph as ArtistGraphType, ArtistNode, RelationshipType } from '@/types';
 import type { GraphFilterState } from './graph-filters';
+import { parseYear } from '@/lib/utils';
 
 // Register layout extensions
 if (typeof cytoscape('core', 'cola') === 'undefined') {
@@ -897,9 +898,8 @@ export function ArtistGraph({
         const edgeData = graph.edges.find(e => e.data.id === edge.id());
         if (edgeData?.data.period) {
           const period = edgeData.data.period;
-          // Extract years from date strings (could be "YYYY" or "YYYY-MM-DD")
-          const beginYear = period.begin ? parseInt(period.begin.substring(0, 4)) : null;
-          const endYear = period.end ? parseInt(period.end.substring(0, 4)) : null;
+          const beginYear = parseYear(period.begin);
+          const endYear = parseYear(period.end);
 
           // If we have a begin date, check if it's after the filter range
           if (beginYear && beginYear > filterMax) {

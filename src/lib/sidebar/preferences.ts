@@ -85,24 +85,15 @@ export function toggleCollapsed(
   return { ...prefs, collapsed: newCollapsed };
 }
 
-export function reorderSections(
-  prefs: SidebarPreferences,
-  fromIndex: number,
-  toIndex: number
-): SidebarPreferences {
-  const newOrder = [...prefs.order];
-  const [removed] = newOrder.splice(fromIndex, 1);
-  newOrder.splice(toIndex, 0, removed);
-  return { ...prefs, order: newOrder };
-}
-
 export function moveSectionUp(
   prefs: SidebarPreferences,
   sectionId: SectionId
 ): SidebarPreferences {
   const index = prefs.order.indexOf(sectionId);
   if (index <= 0) return prefs;
-  return reorderSections(prefs, index, index - 1);
+  const newOrder = [...prefs.order];
+  [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+  return { ...prefs, order: newOrder };
 }
 
 export function moveSectionDown(
@@ -111,5 +102,7 @@ export function moveSectionDown(
 ): SidebarPreferences {
   const index = prefs.order.indexOf(sectionId);
   if (index < 0 || index >= prefs.order.length - 1) return prefs;
-  return reorderSections(prefs, index, index + 1);
+  const newOrder = [...prefs.order];
+  [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+  return { ...prefs, order: newOrder };
 }
