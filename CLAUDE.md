@@ -1,6 +1,6 @@
 # InterChord - The Music Web
 
-> **Last Updated:** 2025-12-01 | **Current Phase:** 3 - Extended Discovery
+> **Last Updated:** 2025-12-02 | **Current Phase:** 3 - Extended Discovery
 
 ## Quick Reference
 
@@ -39,7 +39,8 @@ A music discovery application that visualizes artist relationships through inter
 - Artist search with MusicBrainz disambiguation
 - Interactive artist relationship graph with multiple layouts (Force/COSE, Hierarchical/Dagre, Concentric, Spoke)
 - Band members and collaborations visualization
-- Favorites system (localStorage-based)
+- Favorites system with genre grouping (localStorage-based)
+- Spotify OAuth integration (imports top/followed artists)
 - Recent shows from Setlist.fm API
 - Tour date links to Songkick
 
@@ -50,7 +51,8 @@ A music discovery application that visualizes artist relationships through inter
 | Artist Search | ✅ DONE | MusicBrainz with rate limiting |
 | Relationship Graph | ✅ DONE | Cytoscape.js with 4 layout options |
 | Graph Filters | ✅ DONE | Relationship type + temporal filtering |
-| Favorites System | ✅ DONE | localStorage, displayed on home |
+| Favorites System | ✅ DONE | localStorage with genre grouping |
+| Spotify Integration | ✅ DONE | OAuth, imports top/followed artists |
 | Recent Shows | ✅ DONE | Setlist.fm API (past shows only) |
 | Artist Timeline | ✅ DONE | Album visualizations with cover art |
 | Upcoming Shows | ⏳ PENDING | Waiting for SeatGeek API approval |
@@ -155,9 +157,24 @@ src/
 │   │   ├── client.ts             # Setlist.fm API client
 │   │   ├── hooks.ts              # useArtistConcerts, useMultipleArtistsConcerts
 │   │   └── index.ts              # Exports
+│   ├── favorites/
+│   │   ├── hooks.ts              # useFavorites hook
+│   │   ├── utils.ts              # Standalone utility functions
+│   │   └── index.ts              # Exports
+│   ├── graph/
+│   │   ├── builder.ts            # Graph building/merging functions
+│   │   ├── hooks.ts              # useGraphExpansion hook
+│   │   ├── types.ts              # Graph-related types and constants
+│   │   └── index.ts              # Exports
 │   ├── musicbrainz/
 │   │   ├── client.ts             # MusicBrainz API with rate limiting
+│   │   ├── client.test.ts        # Client tests
 │   │   ├── hooks.ts              # useArtistSearch, useArtistRelationships
+│   │   └── index.ts              # Exports
+│   ├── storage/                  # Centralized storage utilities
+│   │   ├── helpers.ts            # localStorage/sessionStorage helpers
+│   │   ├── keys.ts               # Storage key constants
+│   │   ├── events.ts             # Custom event definitions
 │   │   └── index.ts              # Exports
 │   └── utils.ts                  # cn() utility
 ├── types/
@@ -233,3 +250,20 @@ See `PROGRESS.md` for the complete roadmap (Phases 3-7). Key upcoming items:
 
 - Use Playwright MCP for browser testing when needed
 - Confluence documentation: [InterChord Project](https://stonefrog.atlassian.net/wiki/spaces/STONEFROG/pages/1936752642)
+- You are a senior engineer doing a code review for a service that will eventually run in the cloud and scale horizontally.
+I’ll provide you this project’s files.
+
+Goals:
+    •    Easy maintenance and onboarding
+    •    Easy to add new features
+    •    Cloud-ready and scalable (stateless where appropriate, config via env, no hidden local assumptions)
+
+Please:
+    1.    Give a quick overview of the architecture and folder structure.
+    2.    Call out any design smells (tight coupling, god classes, cross-cutting concerns leaking everywhere).
+    3.    Check that configuration, logging, and error handling follow best practices for cloud deployment.
+    4.    Check for test coverage strategy and how easy it is to test units in isolation.
+    5.    Recommend concrete refactors and show small, focused code examples (before/after) where useful.
+    6.    Suggest how to better organize modules so that adding new features is straightforward.
+
+Assume I’ll eventually run this as Docker containers behind a load balancer in <cloud/Kubernetes/etc.>.

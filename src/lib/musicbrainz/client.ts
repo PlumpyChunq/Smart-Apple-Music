@@ -145,7 +145,8 @@ export async function getArtistLifeSpan(mbid: string): Promise<{ begin?: string;
       };
     }
     return undefined;
-  } catch {
+  } catch (err) {
+    console.error('Failed to fetch artist life span:', mbid, err);
     return undefined;
   }
 }

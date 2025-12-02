@@ -7,22 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FavoritesRecentShows } from '@/components/favorites-recent-shows';
 import { FavoritesByGenre } from '@/components/favorites-by-genre';
+import { FAVORITES_KEY, type StoredArtist } from '@/lib/favorites';
 import type { ArtistNode } from '@/types';
 
-// localStorage keys
+// localStorage keys for this component
 const RECENT_SEARCHES_KEY = 'interchord-recent-searches';
-const FAVORITES_KEY = 'interchord-favorites';
 const MAX_RECENT_SEARCHES = 5;
-
-// Types for stored data
-interface StoredArtist {
-  id: string;
-  name: string;
-  type: string;
-  country?: string;
-  genres?: string[];
-  overrideGenre?: string;
-}
 
 interface ArtistSearchProps {
   onSelectArtist: (artist: ArtistNode) => void;
@@ -80,9 +70,37 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
 
     window.addEventListener('storage', handleStorage);
     window.addEventListener('favorites-updated', handleFavoritesUpdated);
+
+    // Poll for changes as a backup during Spotify imports
+    // (events can be missed when dropdown is closed during import)
+    const pollInterval = setInterval(() => {
+      try {
+        const storedFavorites = localStorage.getItem(FAVORITES_KEY);
+        if (storedFavorites) {
+          const parsed = JSON.parse(storedFavorites);
+          setFavorites((prev) => {
+            // Only update if the data actually changed
+            if (prev.length !== parsed.length) {
+              return parsed;
+            }
+            // Check if IDs match (quick comparison)
+            const prevIds = prev.map((f: StoredArtist) => f.id).sort().join(',');
+            const newIds = parsed.map((f: StoredArtist) => f.id).sort().join(',');
+            if (prevIds !== newIds) {
+              return parsed;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // Ignore
+      }
+    }, 1500); // Poll every 1.5 seconds
+
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('favorites-updated', handleFavoritesUpdated);
+      clearInterval(pollInterval);
     };
   }, []);
 
@@ -295,62 +313,6 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
   );
 }
 
-// Export helper functions for use in other components
-export function addToFavorites(artist: ArtistNode | StoredArtist): void {
-  try {
-    const stored = localStorage.getItem(FAVORITES_KEY);
-    const favorites: StoredArtist[] = stored ? JSON.parse(stored) : [];
-
-    const newFavorite: StoredArtist = {
-      id: artist.id,
-      name: artist.name,
-      type: artist.type,
-      country: 'country' in artist ? artist.country : undefined,
-      genres: 'genres' in artist ? artist.genres : undefined,
-    };
-
-    // Don't add if already exists
-    if (favorites.some((f) => f.id === newFavorite.id)) {
-      return;
-    }
-
-    const updated = [...favorites, newFavorite];
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(updated));
-
-    // Dispatch storage event to update other components
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: FAVORITES_KEY,
-      newValue: JSON.stringify(updated),
-    }));
-  } catch {
-    // Ignore localStorage errors
-  }
-}
-
-export function removeFromFavorites(artistId: string): void {
-  try {
-    const stored = localStorage.getItem(FAVORITES_KEY);
-    const favorites: StoredArtist[] = stored ? JSON.parse(stored) : [];
-
-    const updated = favorites.filter((f) => f.id !== artistId);
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(updated));
-
-    // Dispatch storage event to update other components
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: FAVORITES_KEY,
-      newValue: JSON.stringify(updated),
-    }));
-  } catch {
-    // Ignore localStorage errors
-  }
-}
-
-export function isFavorite(artistId: string): boolean {
-  try {
-    const stored = localStorage.getItem(FAVORITES_KEY);
-    const favorites: StoredArtist[] = stored ? JSON.parse(stored) : [];
-    return favorites.some((f) => f.id === artistId);
-  } catch {
-    return false;
-  }
-}
+// Re-export helper functions from lib/favorites for backwards compatibility
+// New code should import directly from '@/lib/favorites'
+export { addToFavorites, removeFromFavorites, isFavorite } from '@/lib/favorites';

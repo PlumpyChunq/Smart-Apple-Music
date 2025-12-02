@@ -7,9 +7,7 @@ import { AppleMusicAuth } from '@/components/apple-music-auth';
 import { Button } from '@/components/ui/button';
 import {
   STORAGE_KEYS,
-  SESSION_KEYS,
   removeStorageItem,
-  removeSessionItem,
   isClient,
 } from '@/lib/storage';
 import {
@@ -55,17 +53,17 @@ export function SettingsDropdown() {
   const handleClearFavorites = useCallback(() => {
     if (!isClient()) return;
 
-    // Clear localStorage items
+    // Clear localStorage items for favorites and related preferences
     removeStorageItem(STORAGE_KEYS.FAVORITES);
     removeStorageItem(STORAGE_KEYS.GENRE_ORDER);
     removeStorageItem(STORAGE_KEYS.EMPTY_GENRES);
     removeStorageItem(STORAGE_KEYS.CUSTOM_GENRE_COLORS);
     removeStorageItem(STORAGE_KEYS.PRIMARY_SERVICE);
 
-    // Clear sessionStorage items
-    removeSessionItem(SESSION_KEYS.SPOTIFY_IMPORTED);
-    removeSessionItem(SESSION_KEYS.SPOTIFY_IMPORTING);
-    removeSessionItem(SESSION_KEYS.SPOTIFY_IMPORT_STATUS);
+    // NOTE: Do NOT clear SPOTIFY_IMPORTED or SPOTIFY_IMPORTING session flags!
+    // If we clear those, SpotifyAuth will automatically re-import favorites
+    // when the page reloads (if Spotify is still connected).
+    // Those flags should only be cleared when disconnecting Spotify.
 
     // Refresh the page to ensure all components update
     window.location.reload();
@@ -76,6 +74,12 @@ export function SettingsDropdown() {
 
   return (
     <div ref={dropdownRef} className="relative">
+      {/* Always render SpotifyAuth to handle OAuth callbacks and run imports
+          even when dropdown is closed. Hide it visually when dropdown is closed. */}
+      <div className={isOpen ? 'hidden' : 'hidden'}>
+        <SpotifyAuth />
+      </div>
+
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 rounded-full hover:bg-gray-100 transition-colors"

@@ -1,6 +1,6 @@
 # InterChord - Project Progress
 
-> Last Updated: 2025-12-01
+> Last Updated: 2025-12-02
 
 ## Current Status: **Phase 3 - Extended Discovery (In Progress)**
 
@@ -454,6 +454,38 @@ user_annotations
 - Updated Confluence documentation with full project phases
 - **Phase 3 Extended Discovery in progress!**
 
+### 2025-12-02 (Session 9) - Code Review & Refactoring
+- **Code Review Implementation (Cloud-Readiness Focus):**
+  - Reviewed Gemini CLI code review recommendations
+  - Prioritized practical improvements for hobby project with future cloud deployment
+
+- **ArtistDetail Component Refactoring:**
+  - Extracted graph logic into new `src/lib/graph/` module:
+    - `types.ts` - ExpansionDepth, GroupedItem, relationship constants
+    - `builder.ts` - Pure functions for graph building/merging
+    - `hooks.ts` - useGraphExpansion custom hook
+  - Reduced artist-detail.tsx from ~800 lines to ~393 lines
+  - Moved UI state (selectedNodeId, hoveredArtistId) back to component
+  - Business logic (graph expansion, relationship grouping) now in dedicated module
+
+- **Favorites Module Cleanup:**
+  - Created `src/lib/favorites/utils.ts` with standalone utility functions
+  - Updated imports across components to use `@/lib/favorites`
+  - Fixed cross-component import smell (was importing from artist-search.tsx)
+
+- **MusicBrainz Client Tests:**
+  - Created `src/lib/musicbrainz/client.test.ts` with 13 tests
+  - Tests cover: response parsing, request format, error handling, queue behavior
+  - Fixed timing issues with rate limiter's module-level state
+
+- **Bug Fixes:**
+  - Fixed "Clear All Favorites" re-importing from Spotify (was clearing SPOTIFY_IMPORTED flag)
+  - Fixed Spotify OAuth callback not processing when dropdown closed (SpotifyAuth now always mounted)
+  - Added polling fallback for favorites updates during Spotify imports
+  - Fixed concerts hooks test (updated for new mbid parameter)
+
+- **Test Coverage:** 51 tests passing across 5 test files
+
 ---
 
 ## Quick Resume
@@ -475,9 +507,13 @@ user_annotations
 - `PROGRESS.md` - This file (keep updated!)
 - `src/lib/musicbrainz/client.ts` - MusicBrainz API client with rate limiting
 - `src/lib/musicbrainz/hooks.ts` - TanStack Query hooks
+- `src/lib/musicbrainz/client.test.ts` - MusicBrainz client tests
+- `src/lib/graph/` - Graph logic (builder, hooks, types) - **NEW**
+- `src/lib/favorites/` - Favorites management (hooks, utils) - **UPDATED**
 - `src/lib/concerts/` - Setlist.fm client and hooks
 - `src/components/artist-search.tsx` - Search interface
-- `src/components/artist-detail.tsx` - Artist detail with List/Graph toggle
+- `src/components/artist-detail.tsx` - Artist detail with List/Graph toggle (refactored)
+- `src/components/settings-dropdown.tsx` - Settings with Spotify/Apple Music auth
 - `src/components/graph/artist-graph.tsx` - Cytoscape.js wrapper
 - `src/components/graph/index.tsx` - GraphView with controls
 - `src/app/api/concerts/route.ts` - Setlist.fm proxy API

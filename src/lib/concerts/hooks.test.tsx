@@ -67,7 +67,7 @@ describe('useArtistConcerts', () => {
 
     expect(result.current.concerts).toHaveLength(2);
     expect(result.current.error).toBeNull();
-    expect(mockGetArtistEvents).toHaveBeenCalledWith('Test Artist');
+    expect(mockGetArtistEvents).toHaveBeenCalledWith('Test Artist', undefined);
   });
 
   it('calculates recentCount correctly for concerts in last 90 days', async () => {

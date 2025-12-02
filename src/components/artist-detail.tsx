@@ -5,15 +5,21 @@ import { useArtistRelationships } from '@/lib/musicbrainz/hooks';
 import { useEnrichedArtist } from '@/lib/apple-music';
 import { Button } from '@/components/ui/button';
 import { GraphView, LayoutType, GraphFilters, getDefaultFilters, type GraphFilterState } from '@/components/graph';
-import { addToFavorites, removeFromFavorites, isFavorite } from '@/components/artist-search';
+import { addToFavorites, removeFromFavorites, isFavorite } from '@/lib/favorites';
 import { SidebarSections } from '@/components/sidebar-sections';
-import type { ArtistNode, ArtistRelationship, ArtistGraph } from '@/types';
-import { getArtistRelationships } from '@/lib/musicbrainz/client';
+import type { ArtistNode } from '@/types';
 import { useArtistTimeline } from '@/lib/timeline';
 import { ArtistTimeline, TIMELINE_DEFAULT_HEIGHT } from '@/components/timeline';
 import { useArtistBio } from '@/lib/wikipedia';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { parseYear } from '@/lib/utils';
+import {
+  useGraphExpansion,
+  groupRelationshipsByType,
+  getRelationshipLabel,
+  extractInstruments,
+  expansionDepthLabels,
+  type ExpansionDepth,
+} from '@/lib/graph';
 
 interface ArtistDetailProps {
   artist: ArtistNode;
@@ -21,273 +27,9 @@ interface ArtistDetailProps {
   onSelectRelated: (artist: ArtistNode) => void;
 }
 
-// Expansion depth options
-type ExpansionDepth = 1 | 2 | 3 | 4;
-
-const expansionDepthLabels: Record<ExpansionDepth, string> = {
-  1: 'Level 1 - Direct connections only',
-  2: 'Level 2 - Include members\' other bands',
-  3: 'Level 3 - Two degrees of separation',
-  4: 'Level 4 - Three degrees (large graph)',
-};
-
-// Labels for when viewing a band/group
-const relationshipLabelsForGroup: Record<string, string> = {
-  member_of: 'Members',
-  founder_of: 'Founders',
-  side_project: 'Side Projects',
-  collaboration: 'Collaborations',
-  producer: 'Producers',
-  influenced_by: 'Influences',
-  same_scene: 'Same Scene',
-  same_label: 'Same Label',
-  touring_member: 'Touring Members',
-};
-
-// Labels for when viewing a person
-const relationshipLabelsForPerson: Record<string, string> = {
-  member_of: 'Bands & Groups',
-  founder_of: 'Founded',
-  side_project: 'Side Projects',
-  collaboration: 'Collaborations',
-  producer: 'Produced',
-  influenced_by: 'Influences',
-  same_scene: 'Same Scene',
-  same_label: 'Same Label',
-  touring_member: 'Touring For',
-};
-
-// Get appropriate labels based on artist type
-const getRelationshipLabel = (type: string, artistType: string): string => {
-  const labels = artistType === 'person' ? relationshipLabelsForPerson : relationshipLabelsForGroup;
-  return labels[type] || type;
-};
-
-interface GroupedItem {
-  relationship: ArtistRelationship;
-  artist: ArtistNode;
-  isFoundingMember: boolean;
-  isCurrent: boolean;
-  tenure: string;
-  sortYear: number;
-}
-
-// Extract instruments from attributes (filter out non-instrument attributes)
-function extractInstruments(attributes?: string[]): string[] {
-  if (!attributes) return [];
-
-  const nonInstruments = ['founding', 'original', 'past', 'current', 'minor'];
-  return attributes
-    .filter(attr => !nonInstruments.some(ni => attr.toLowerCase().includes(ni)))
-    .slice(0, 3); // Top 3 instruments
-}
-
-function formatTenure(begin?: string, end?: string | null): string {
-  const startYear = parseYear(begin);
-  if (!startYear) return '';
-  const endYear = parseYear(end);
-  if (endYear) {
-    return startYear === endYear ? String(startYear) : `${startYear}–${endYear}`;
-  }
-  return `${startYear}–present`;
-}
-
-function isFoundingMember(
-  rel: ArtistRelationship,
-  earliestYear: number
-): boolean {
-  if (rel.type !== 'member_of') return false;
-
-  const hasFoundingAttribute = rel.attributes?.some(
-    attr => attr.toLowerCase().includes('found')
-  );
-  if (hasFoundingAttribute) return true;
-
-  const startYear = parseYear(rel.period?.begin) ?? 9999;
-  return startYear <= earliestYear + 1;
-}
-
-function getEarliestMemberYear(
-  relationships: ArtistRelationship[],
-  bandStartYear?: string
-): number {
-  let earliestYear = parseYear(bandStartYear) ?? 9999;
-
-  for (const rel of relationships) {
-    if (rel.type === 'member_of') {
-      const year = parseYear(rel.period?.begin);
-      if (year && year < earliestYear) earliestYear = year;
-    }
-  }
-
-  return earliestYear;
-}
-
-function groupRelationshipsByType(
-  relationships: ArtistRelationship[],
-  relatedArtists: ArtistNode[],
-  bandStartYear?: string
-): Map<string, GroupedItem[]> {
-  const artistMap = new Map(relatedArtists.map(a => [a.id, a]));
-  const grouped = new Map<string, GroupedItem[]>();
-  const earliestYear = getEarliestMemberYear(relationships, bandStartYear);
-
-  for (const rel of relationships) {
-    const artist = artistMap.get(rel.target) || artistMap.get(rel.source);
-
-    if (artist) {
-      const type = rel.type;
-      if (!grouped.has(type)) {
-        grouped.set(type, []);
-      }
-
-      // Use relationship period if available, otherwise fall back to related artist's active years
-      // This helps when MusicBrainz has dates on the band but not on the membership relationship
-      const periodBegin = rel.period?.begin || artist.activeYears?.begin;
-      // Use nullish coalescing - fall back to artist's activeYears if relationship period.end is null/undefined
-      const periodEnd = rel.period?.end ?? artist.activeYears?.end;
-
-      const startYear = parseYear(periodBegin) ?? 9999;
-      const founding = isFoundingMember(rel, earliestYear);
-      const isCurrent = periodEnd === null || periodEnd === undefined;
-      const tenure = formatTenure(periodBegin, periodEnd);
-
-      grouped.get(type)!.push({
-        relationship: rel,
-        artist,
-        isFoundingMember: founding,
-        isCurrent,
-        tenure,
-        sortYear: startYear,
-      });
-    }
-  }
-
-  for (const [, items] of grouped) {
-    items.sort((a, b) => {
-      if (a.isFoundingMember && !b.isFoundingMember) return -1;
-      if (!a.isFoundingMember && b.isFoundingMember) return 1;
-      if (a.isCurrent && !b.isCurrent) return -1;
-      if (!a.isCurrent && b.isCurrent) return 1;
-      return a.sortYear - b.sortYear;
-    });
-  }
-
-  return grouped;
-}
-
-// Build graph data with founding member status and instruments
-function buildGraphData(
-  centerArtist: ArtistNode,
-  relationships: ArtistRelationship[],
-  relatedArtists: ArtistNode[],
-  bandStartYear?: string
-): ArtistGraph {
-  const earliestYear = getEarliestMemberYear(relationships, bandStartYear);
-
-  // Create maps for founding status and instruments per artist
-  const foundingMap = new Map<string, boolean>();
-  const instrumentsMap = new Map<string, string[]>();
-
-  for (const rel of relationships) {
-    const relatedId = rel.target !== centerArtist.id ? rel.target : rel.source;
-    if (!foundingMap.has(relatedId)) {
-      foundingMap.set(relatedId, isFoundingMember(rel, earliestYear));
-    }
-    // Collect instruments from relationship attributes
-    const instruments = extractInstruments(rel.attributes);
-    if (instruments.length > 0) {
-      const existing = instrumentsMap.get(relatedId) || [];
-      instrumentsMap.set(relatedId, [...new Set([...existing, ...instruments])].slice(0, 3));
-    }
-  }
-
-  // Create artist lookup for fallback period data
-  const artistMap = new Map(relatedArtists.map(a => [a.id, a]));
-
-  const nodes: ArtistGraph['nodes'] = [
-    {
-      data: {
-        ...centerArtist,
-        loaded: true,
-      },
-    },
-    ...relatedArtists.map(a => ({
-      data: {
-        ...a,
-        loaded: false,
-        founding: foundingMap.get(a.id) || false,
-        instruments: instrumentsMap.get(a.id),
-      },
-    })),
-  ];
-
-  // Enrich edges with fallback period from related artist's activeYears
-  const edges: ArtistGraph['edges'] = relationships.map(rel => {
-    const relatedId = rel.target !== centerArtist.id ? rel.target : rel.source;
-    const relatedArtist = artistMap.get(relatedId);
-
-    // Use relationship period if available, otherwise fall back to related artist's active years
-    const periodBegin = rel.period?.begin || relatedArtist?.activeYears?.begin;
-    // Use nullish coalescing - fall back to artist's activeYears if relationship period.end is null/undefined
-    const periodEnd = rel.period?.end ?? relatedArtist?.activeYears?.end;
-
-    return {
-      data: {
-        ...rel,
-        period: {
-          begin: periodBegin,
-          end: periodEnd,
-        },
-      },
-    };
-  });
-
-  return { nodes, edges };
-}
-
-// Merge new graph data into existing graph
-function mergeGraphData(
-  existingGraph: ArtistGraph,
-  newNodes: ArtistGraph['nodes'],
-  newEdges: ArtistGraph['edges'],
-  expandedNodeId: string
-): ArtistGraph {
-  const existingNodeIds = new Set(existingGraph.nodes.map(n => n.data.id));
-  const existingEdgeIds = new Set(existingGraph.edges.map(e => e.data.id));
-
-  const updatedNodes = existingGraph.nodes.map(n => {
-    if (n.data.id === expandedNodeId) {
-      return { ...n, data: { ...n.data, loaded: true } };
-    }
-    return n;
-  });
-
-  for (const node of newNodes) {
-    if (!existingNodeIds.has(node.data.id)) {
-      updatedNodes.push(node);
-    }
-  }
-
-  const updatedEdges = [...existingGraph.edges];
-  for (const edge of newEdges) {
-    if (!existingEdgeIds.has(edge.data.id)) {
-      updatedEdges.push(edge);
-    }
-  }
-
-  return { nodes: updatedNodes, edges: updatedEdges };
-}
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- onBack kept for future back navigation
 export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailProps) {
-  const [expandedGraph, setExpandedGraph] = useState<ArtistGraph | null>(null);
-  const [isExpanding, setIsExpanding] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used by setExpandingNodeId for future loading indicator
-  const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
-  const [autoExpandComplete, setAutoExpandComplete] = useState(false);
-  const [expansionDepth, setExpansionDepth] = useState<ExpansionDepth>(1);
-  const [expandProgress, setExpandProgress] = useState<{ current: number; total: number } | null>(null);
+  // UI-only state
   const [showList, setShowList] = useState(true);
   const [isFav, setIsFav] = useState(false);
   const [layoutType, setLayoutType] = useState<LayoutType>('auto');
@@ -313,6 +55,19 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   }, [artist, isFav]);
 
   const { data, isLoading, error } = useArtistRelationships(artist.id);
+
+  // Graph expansion hook - manages all graph state
+  const {
+    graphData,
+    isExpanding,
+    expandProgress,
+    expansionDepth,
+    availableRelTypes,
+    handleDepthChange,
+    handleNodeExpand,
+    handleResetGraph,
+    hasExpandedGraph,
+  } = useGraphExpansion(artist.id, data);
 
   // Enrich artist with Apple Music data (image, albums)
   const { data: enrichedArtist } = useEnrichedArtist(artist);
@@ -369,126 +124,6 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
     }
   }, []);
 
-  // Build initial graph data from relationships
-  const initialGraphData = useMemo<ArtistGraph>(() => {
-    if (!data) return { nodes: [], edges: [] };
-    return buildGraphData(
-      data.artist,
-      data.relationships,
-      data.relatedArtists,
-      data.artist.activeYears?.begin
-    );
-  }, [data]);
-
-  // Use expanded graph if available, otherwise initial
-  const graphData = expandedGraph || initialGraphData;
-
-  // Compute available relationship types from current graph edges
-  const availableRelTypes = useMemo(() => {
-    const types = new Set<string>();
-    graphData.edges.forEach(edge => {
-      if (edge.data.type) {
-        types.add(edge.data.type);
-      }
-    });
-    return Array.from(types);
-  }, [graphData.edges]);
-
-  // Multi-level expansion function
-  const performMultiLevelExpansion = useCallback(async (depth: ExpansionDepth) => {
-    if (!data || isExpanding) return;
-
-    setIsExpanding(true);
-    setAutoExpandComplete(true);
-
-    let currentGraph = buildGraphData(
-      data.artist,
-      data.relationships,
-      data.relatedArtists,
-      data.artist.activeYears?.begin
-    );
-
-    if (depth === 1) {
-      setExpandedGraph(currentGraph);
-      setIsExpanding(false);
-      return;
-    }
-
-    const nodeDepths = new Map<string, number>();
-    nodeDepths.set(data.artist.id, 0);
-    for (const node of currentGraph.nodes) {
-      if (!nodeDepths.has(node.data.id)) {
-        nodeDepths.set(node.data.id, 1);
-      }
-    }
-
-    for (let currentLevel = 1; currentLevel < depth; currentLevel++) {
-      const nodesToExpand = currentGraph.nodes
-        .filter(n =>
-          n.data.loaded === false &&
-          nodeDepths.get(n.data.id) === currentLevel
-        )
-        .map(n => n.data);
-
-      if (nodesToExpand.length === 0) break;
-
-      setExpandProgress({ current: 0, total: nodesToExpand.length });
-
-      for (let i = 0; i < nodesToExpand.length; i++) {
-        const nodeToExpand = nodesToExpand[i];
-        setExpandingNodeId(nodeToExpand.id);
-        setExpandProgress({ current: i + 1, total: nodesToExpand.length });
-
-        try {
-          const expandedData = await getArtistRelationships(nodeToExpand.id);
-
-          if (expandedData) {
-            const newGraph = buildGraphData(
-              expandedData.artist,
-              expandedData.relationships,
-              expandedData.relatedArtists,
-              expandedData.artist.activeYears?.begin
-            );
-
-            for (const node of newGraph.nodes) {
-              if (!nodeDepths.has(node.data.id)) {
-                nodeDepths.set(node.data.id, currentLevel + 1);
-              }
-            }
-
-            currentGraph = mergeGraphData(
-              currentGraph,
-              newGraph.nodes,
-              newGraph.edges,
-              nodeToExpand.id
-            );
-          }
-        } catch (err) {
-          console.error(`Failed to expand ${nodeToExpand.name}:`, err);
-        }
-      }
-    }
-
-    setExpandedGraph(currentGraph);
-    setIsExpanding(false);
-    setExpandingNodeId(null);
-    setExpandProgress(null);
-  }, [data, isExpanding]);
-
-  // Auto-expand when data loads
-  useEffect(() => {
-    if (!data || autoExpandComplete || isExpanding) return;
-    performMultiLevelExpansion(expansionDepth);
-  }, [data, autoExpandComplete, isExpanding, expansionDepth, performMultiLevelExpansion]);
-
-  // Handle expansion depth change
-  const handleDepthChange = (newDepth: ExpansionDepth) => {
-    if (newDepth === expansionDepth || isExpanding) return;
-    setExpansionDepth(newDepth);
-    setAutoExpandComplete(false);
-    setExpandedGraph(null);
-  };
-
   // Handle node click - select/highlight that node in the graph
   const handleNodeClick = useCallback((clickedArtist: ArtistNode | null) => {
     // If null (background click), clear selection
@@ -509,48 +144,6 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   const handleSidebarNodeNavigate = useCallback((relatedArtist: ArtistNode) => {
     onSelectRelated(relatedArtist);
   }, [onSelectRelated]);
-
-  // Handle node expansion
-  const handleNodeExpand = useCallback(async (nodeId: string) => {
-    if (isExpanding) return;
-
-    setIsExpanding(true);
-    setExpandingNodeId(nodeId);
-
-    try {
-      const expandedData = await getArtistRelationships(nodeId);
-
-      if (expandedData) {
-        const newGraph = buildGraphData(
-          expandedData.artist,
-          expandedData.relationships,
-          expandedData.relatedArtists,
-          expandedData.artist.activeYears?.begin
-        );
-
-        const currentGraph = expandedGraph || initialGraphData;
-        const merged = mergeGraphData(
-          currentGraph,
-          newGraph.nodes,
-          newGraph.edges,
-          nodeId
-        );
-
-        setExpandedGraph(merged);
-      }
-    } catch (err) {
-      console.error('Failed to expand node:', err);
-    } finally {
-      setIsExpanding(false);
-      setExpandingNodeId(null);
-    }
-  }, [isExpanding, expandedGraph, initialGraphData]);
-
-  // Reset graph
-  const handleResetGraph = () => {
-    setExpandedGraph(null);
-    setAutoExpandComplete(false);
-  };
 
   return (
     <div className="w-full px-4 flex flex-col h-[calc(100vh-80px)]" style={{ paddingBottom: timelineHeight + 16 }}>
@@ -661,7 +254,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
               <option value="hierarchical">Tree</option>
               <option value="concentric">Concentric</option>
             </select>
-            {expandedGraph && (
+            {hasExpandedGraph && (
               <>
                 <span className="text-gray-300">|</span>
                 <Button variant="outline" size="sm" onClick={handleResetGraph} disabled={isExpanding}>
