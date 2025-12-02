@@ -218,6 +218,21 @@ export function SidebarSections({
     }
   }, [highlightedAlbum]);
 
+  // Normalize album title for deduplication (same logic as MusicBrainz client)
+  const normalizeAlbumTitle = useCallback((title: string): string => {
+    return title
+      .replace(/\s*[:–—-]\s+.*$/, '') // Remove subtitles
+      .replace(/([a-z])([A-Z])/g, '$1 $2') // Split camelCase
+      .toLowerCase()
+      .replace(/\s*\([^)]*\)\s*/g, ' ') // Remove parentheticals
+      .replace(/\s*\[[^\]]*\]\s*/g, ' ') // Remove brackets
+      .replace(/\s*[&]+\s*/g, ' and ') // Normalize ampersand
+      .replace(/\b(and|the)\b/g, ' ') // Remove common words
+      .replace(/[^a-z0-9\s]/g, '') // Remove non-alphanumeric
+      .replace(/\s+/g, ' ') // Collapse whitespace
+      .trim();
+  }, []);
+
   // Helper to render albums
   const renderAlbums = useCallback(() => {
     if (!displayArtist.albums) return null;
@@ -231,8 +246,23 @@ export function SidebarSections({
       return { album, year };
     });
 
+    // Deduplicate albums by normalized title + year
+    const deduped = new Map<string, { album: Album; year: number | null }>();
+    for (const item of albumsWithYears) {
+      const normalizedTitle = normalizeAlbumTitle(item.album.name);
+      const key = `${normalizedTitle}|${item.year ?? 'unknown'}`;
+      const existing = deduped.get(key);
+      // Keep shorter title (usually cleaner) or one with artwork
+      if (!existing ||
+          (item.album.artworkUrl && !existing.album.artworkUrl) ||
+          item.album.name.length < existing.album.name.length) {
+        deduped.set(key, item);
+      }
+    }
+    const dedupedAlbums = Array.from(deduped.values());
+
     // Sort by year (albums without years go at the end)
-    const sortedAlbums = albumsWithYears.sort((a, b) => {
+    const sortedAlbums = dedupedAlbums.sort((a, b) => {
       if (a.year === null && b.year === null) return 0;
       if (a.year === null) return 1;
       if (b.year === null) return -1;
@@ -306,7 +336,7 @@ export function SidebarSections({
         )}
       </div>
     );
-  }, [displayArtist.albums, displayArtist.name, graphFilters.yearRange, onHighlightAlbum, findAlbumYear, isAlbumHighlighted, streamingService]);
+  }, [displayArtist.albums, displayArtist.name, graphFilters.yearRange, onHighlightAlbum, findAlbumYear, isAlbumHighlighted, streamingService, normalizeAlbumTitle]);
 
   // Build sections array with content
   type SectionData = { id: SectionId; title: string; count?: number; content: React.ReactNode };

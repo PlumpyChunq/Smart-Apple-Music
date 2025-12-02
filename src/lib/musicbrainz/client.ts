@@ -220,10 +220,36 @@ export async function buildArtistGraph(mbid: string): Promise<ArtistGraph> {
 }
 
 /**
+ * Normalize album title for deduplication
+ * Removes edition markers, subtitles, punctuation differences, etc.
+ */
+function normalizeAlbumTitle(title: string): string {
+  return title
+    // Remove subtitles (everything after colon or dash with spaces)
+    .replace(/\s*[:–—-]\s+.*$/, '')
+    // Add spaces before capitals in camelCase (GodWeenSatan -> God Ween Satan)
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    // Remove ALL parentheticals (handles editions, regions, etc.)
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    // Remove ALL brackets
+    .replace(/\s*\[[^\]]*\]\s*/g, ' ')
+    // Normalize ampersand to 'and' (handle various ampersand chars)
+    .replace(/\s*[&\u0026\uFF06]+\s*/g, ' and ')
+    // Remove 'and' and 'the' for looser matching
+    .replace(/\b(and|the)\b/g, ' ')
+    // Remove all non-alphanumeric
+    .replace(/[^a-z0-9\s]/g, '')
+    // Collapse whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Get release groups (albums, EPs, singles) for an artist
  * @param mbid - MusicBrainz artist ID
  * @param primaryTypes - Filter by primary type (e.g., ['Album', 'EP'])
- * @returns Array of release groups sorted by date (newest first)
+ * @returns Array of release groups sorted by date (newest first), deduplicated
  */
 export async function getArtistReleaseGroups(
   mbid: string,
@@ -256,8 +282,23 @@ export async function getArtistReleaseGroups(
     return true;
   });
 
+  // Deduplicate by normalized title + year
+  // Keep the entry with the shortest title (usually the cleanest/original version)
+  const deduped = new Map<string, MusicBrainzReleaseGroup>();
+
+  for (const rg of filtered) {
+    const year = rg['first-release-date']?.substring(0, 4) || 'unknown';
+    const normalizedTitle = normalizeAlbumTitle(rg.title);
+    const key = `${normalizedTitle}|${year}`;
+
+    const existing = deduped.get(key);
+    if (!existing || rg.title.length < existing.title.length) {
+      deduped.set(key, rg);
+    }
+  }
+
   // Sort by release date (newest first), handling partial dates
-  return filtered.sort((a, b) => {
+  return Array.from(deduped.values()).sort((a, b) => {
     const dateA = a['first-release-date'] || '';
     const dateB = b['first-release-date'] || '';
     return dateB.localeCompare(dateA);
