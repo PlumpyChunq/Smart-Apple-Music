@@ -1,0 +1,106 @@
+# InterChord - Podman Compose for stonefrog-db01 deployment
+# Usage: podman-compose up -d
+#
+# Prerequisites:
+# 1. Copy .env.production.example to .env.production and fill in values
+# 2. Create Cloudflare Tunnel and get token from Zero Trust dashboard
+# 3. MusicBrainz database should already be running on this host (ports 5432/5000)
+
+version: "3.8"
+
+services:
+  # =============================================================================
+  # InterChord Next.js Application
+  # =============================================================================
+  interchord:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Build-time variables (NEXT_PUBLIC_* must be set at build time)
+        - NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${NEXT_PUBLIC_SPOTIFY_CLIENT_ID}
+        - NEXT_PUBLIC_SPOTIFY_REDIRECT_URI=${NEXT_PUBLIC_SPOTIFY_REDIRECT_URI}
+        - NEXT_PUBLIC_MUSICBRAINZ_API=${NEXT_PUBLIC_MUSICBRAINZ_API}
+        - NEXT_PUBLIC_FANART_API_KEY=${NEXT_PUBLIC_FANART_API_KEY}
+        - NEXT_PUBLIC_LASTFM_API_KEY=${NEXT_PUBLIC_LASTFM_API_KEY}
+        - NEXT_PUBLIC_DISCOGS_TOKEN=${NEXT_PUBLIC_DISCOGS_TOKEN}
+        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+    container_name: interchord-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Runtime environment variables (non-NEXT_PUBLIC_)
+      - SETLIST_FM_API_KEY=${SETLIST_FM_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      interchord-db:
+        condition: service_healthy
+    networks:
+      - interchord-network
+    # Access MusicBrainz on host (ports 5432/5000)
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/musicbrainz/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # =============================================================================
+  # User Database (PostgreSQL) - Separate from MusicBrainz
+  # =============================================================================
+  interchord-db:
+    image: docker.io/library/postgres:16-alpine
+    container_name: interchord-db
+    restart: unless-stopped
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflict with MusicBrainz on 5432
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-interchord}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-interchord}
+    volumes:
+      - interchord-db-data:/var/lib/postgresql/data
+      # Optional: init scripts
+      # - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - interchord-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-interchord} -d ${POSTGRES_DB:-interchord}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # =============================================================================
+  # Cloudflare Tunnel (Zero Trust Access)
+  # =============================================================================
+  cloudflared:
+    image: docker.io/cloudflare/cloudflared:latest
+    container_name: interchord-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      interchord:
+        condition: service_healthy
+    networks:
+      - interchord-network
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  interchord-network:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  interchord-db-data:
+    driver: local
