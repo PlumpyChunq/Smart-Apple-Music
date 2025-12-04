@@ -65,18 +65,33 @@ export async function getWikipediaSummary(title: string): Promise<WikipediaSumma
 }
 
 /**
+ * Check if a Wikipedia summary appears to be about music
+ */
+function isMusicRelated(summary: WikipediaSummary): boolean {
+  const description = summary.description?.toLowerCase() || '';
+  const extract = summary.extract?.toLowerCase() || '';
+
+  const musicKeywords = [
+    'musician', 'singer', 'band', 'artist', 'songwriter', 'rapper', 'composer',
+    'album', 'song', 'record', 'music', 'guitar', 'vocal', 'rock', 'pop', 'hip hop',
+    'jazz', 'blues', 'funk', 'soul', 'r&b', 'disco', 'electronic', 'producer'
+  ];
+
+  return musicKeywords.some(keyword =>
+    description.includes(keyword) || extract.slice(0, 500).includes(keyword)
+  );
+}
+
+/**
  * Search Wikipedia and get the best matching article summary
- * Useful when the exact title doesn't match
+ * Prioritizes music-related results for artist searches
  */
 export async function searchWikipedia(query: string): Promise<WikipediaSummary | null> {
   try {
-    // First try exact match
-    const directResult = await getWikipediaSummary(query);
-    if (directResult) {
-      return directResult;
-    }
+    // For music app: try musician/band-specific pages FIRST
+    // This prevents "Prince" from returning the royalty article
 
-    // Try with "(musician)" suffix for disambiguation
+    // Try with "(musician)" suffix
     const musicianResult = await getWikipediaSummary(`${query} (musician)`);
     if (musicianResult) {
       return musicianResult;
@@ -86,6 +101,25 @@ export async function searchWikipedia(query: string): Promise<WikipediaSummary |
     const bandResult = await getWikipediaSummary(`${query} (band)`);
     if (bandResult) {
       return bandResult;
+    }
+
+    // Try with "(singer)" suffix
+    const singerResult = await getWikipediaSummary(`${query} (singer)`);
+    if (singerResult) {
+      return singerResult;
+    }
+
+    // Fall back to exact match, but validate it's music-related
+    const directResult = await getWikipediaSummary(query);
+    if (directResult && isMusicRelated(directResult)) {
+      return directResult;
+    }
+
+    // If direct result exists but isn't music-related, return null
+    // This prevents showing "Prince (royalty)" for the musician
+    if (directResult) {
+      console.warn(`Wikipedia result for "${query}" doesn't appear music-related, skipping`);
+      return null;
     }
 
     return null;

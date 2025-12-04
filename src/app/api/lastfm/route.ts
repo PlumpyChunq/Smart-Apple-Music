@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const method = searchParams.get('method');
   const artist = searchParams.get('artist');
-  const limit = searchParams.get('limit') || '6';
+  const limit = searchParams.get('limit') || '50';
 
   if (!method) {
     return NextResponse.json(

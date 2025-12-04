@@ -170,7 +170,7 @@ export async function getDiscogsArtist(artistId: number): Promise<{
  */
 export async function getDiscogsReleases(
   artistId: number,
-  limit: number = 6
+  limit: number = 50
 ): Promise<AppleMusicAlbumInfo[]> {
   const cacheKey = `discogs-releases-${artistId}`;
   const cached = cacheGet<AppleMusicAlbumInfo[]>(cacheKey);
@@ -240,7 +240,7 @@ export async function enrichArtistWithDiscogs(
     // Fetch detailed artist info and releases in parallel
     const [artistDetails, releases] = await Promise.all([
       getDiscogsArtist(searchResult.id),
-      getDiscogsReleases(searchResult.id, 6),
+      getDiscogsReleases(searchResult.id, 50),
     ]);
 
     const enrichmentData: Partial<ArtistNode> = {};

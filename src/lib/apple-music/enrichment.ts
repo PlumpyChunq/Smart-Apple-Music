@@ -121,7 +121,7 @@ export async function enrichArtistWithAppleMusic(
     }
 
     // Get artist's albums
-    const catalogAlbums = await getCatalogArtistAlbums(catalogArtist.id, 'us', 6);
+    const catalogAlbums = await getCatalogArtistAlbums(catalogArtist.id, 'us', 50);
 
     // Format artwork URL
     const imageUrl = formatArtworkUrl(catalogArtist.attributes.artwork, 500);
