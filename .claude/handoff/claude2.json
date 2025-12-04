@@ -1,19 +1,20 @@
 {
   "from": "claude2",
   "location": "stonefrog-db01 (192.168.2.67 - database server)",
-  "timestamp": "2025-12-04T13:50:00Z",
-  "sequence": 1,
-  "status": "running",
-  "current_task": "Restoring recording Solr index (9/15) - 47GB archive extracting",
+  "timestamp": "2025-12-04T14:18:00Z",
+  "sequence": 2,
+  "status": "blocked",
+  "current_task": "Recording Solr index restore failed - backup archive corrupted",
   "completed": [
     "Started MusicBrainz containers",
     "PostgreSQL database loaded and running",
     "Restored 14/15 Solr collections",
-    "Downloaded fresh recording.tar.zst (47GB)"
+    "Downloaded fresh recording.tar.zst (47GB)",
+    "Attempted recording restore (FAILED)"
   ],
-  "blocked_on": null,
-  "message": "Recording archive extraction in progress. ETA ~25 min for extraction + restore. All other 14 collections working! PostgreSQL ready for InterChord at 192.168.2.67:5432",
-  "needs_response": false,
+  "blocked_on": "Recording backup archive from data.metabrainz.org is corrupted - NoSuchFileException for index files",
+  "message": "Recording index restore FAILED. The backup archive has corrupted/missing index files. This is an upstream issue with MusicBrainz backups. All other 14 collections work fine. PostgreSQL fully operational. InterChord can proceed without recording search - use PostgreSQL direct queries for tracks.",
+  "needs_response": true,
   "last_read_sequence": 0,
   "context": {
     "key_files": [
@@ -23,11 +24,12 @@
     ],
     "decisions": [
       "Using pre-built Solr backup archives instead of rebuilding indexes",
-      "Recording archive was corrupted twice, now re-downloading fresh copy"
+      "Recording archive corrupted - multiple download attempts failed",
+      "Recommending PostgreSQL direct queries for track lookups"
     ],
     "warnings": [
-      "Recording search (tracks) will show 0 results until restore completes",
-      "Disk usage peak during extraction: ~280GB/399GB"
+      "Recording search (tracks) returns 0 results - CANNOT BE FIXED with current backup archives",
+      "Alternative: use sir indexer to rebuild (takes many hours)"
     ]
   },
   "services": {
@@ -43,7 +45,7 @@
       "host": "192.168.2.67",
       "port": 8983,
       "status": "running",
-      "collections_ready": "14/15 (recording pending)"
+      "collections_ready": "14/15 (recording FAILED - upstream backup corrupted)"
     },
     "web_ui": {
       "url": "http://192.168.2.67:5000",
