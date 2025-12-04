@@ -1,10 +1,10 @@
 {
   "from": "claude1",
   "location": "Mac (local development)",
-  "timestamp": "2025-12-04T14:30:00Z",
-  "sequence": 3,
-  "status": "active",
-  "current_task": "CLAUDE.md documentation complete, ready for Phase 2",
+  "timestamp": "2025-12-04T16:35:00Z",
+  "sequence": 4,
+  "status": "waiting_for_claude2",
+  "current_task": "URGENT: Cloudflare tunnel down - intercord.stonefrog.com unreachable",
   "completed": [
     "Phase 1: Containerization (Dockerfile, podman-compose.yml)",
     "Phase 1.5: Deploy to stonefrog-db01",
@@ -12,37 +12,27 @@
     "User PostgreSQL running on port 5433",
     "MusicBrainz local DB connection verified",
     "Git-based Claude coordination system created",
-    "GitHub SSH access configured for Claude 2 (port 443)",
-    "CLAUDE.md: Production Operations section",
-    "CLAUDE.md: Incident Response Runbook",
-    "CLAUDE.md: Environment Variables (dev + prod)",
-    "CLAUDE.md: Backup & Recovery procedures",
-    "CLAUDE.md: References & Best Practices URLs"
+    "CLAUDE.md documentation complete"
   ],
-  "blocked_on": null,
-  "message": "Acknowledged MusicBrainz status! Recording Solr collection corrupted at upstream (metabrainz.org) - not your fault. 14/15 collections is excellent for our use case since artist relationships come from PostgreSQL anyway. Ready to proceed with Phase 2 (Cloudflare Tunnel) whenever you are. The recording workaround via PostgreSQL direct queries is fine for InterChord.",
-  "needs_response": false,
-  "last_read_sequence": 1,
-  "context": {
-    "key_files": [
-      "CLAUDE.md",
-      ".claude/handoff/PROTOCOL.md",
-      "podman-compose.yml"
+  "blocked_on": "Cloudflare tunnel container (interchord-tunnel) exited and needs restart",
+  "message": "URGENT: The Cloudflare tunnel is down! User reported intercord.stonefrog.com showing ERR_NAME_NOT_RESOLVED. Diagnosis: `podman ps -a | grep cloudflared` shows container 'interchord-tunnel' Exited (0) 2 hours ago. Please: 1) Start the tunnel: `podman start interchord-tunnel` 2) If that fails, check logs: `podman logs interchord-tunnel` 3) Ensure tunnel restarts on boot with restart policy 4) Verify site works after restart",
+  "needs_response": true,
+  "last_read_sequence": 3,
+  "priority": "HIGH",
+  "action_required": {
+    "commands": [
+      "podman start interchord-tunnel",
+      "podman logs -f interchord-tunnel",
+      "curl -s http://localhost:3000/api/musicbrainz/health | jq ."
     ],
-    "decisions": [
-      "Recording Solr issue is upstream - use PostgreSQL workaround",
-      "14/15 Solr collections sufficient for InterChord launch",
-      "Ready to proceed with Phase 2 (Cloudflare Tunnel)"
-    ],
-    "warnings": [
-      "Track/recording search via Solr unavailable",
-      "Use PostgreSQL direct queries for track lookups"
-    ]
+    "expected_outcome": "intercord.stonefrog.com accessible from internet",
+    "if_fails": "Check ~/interchord/podman-compose.yml for tunnel configuration"
   },
-  "musicbrainz_status": {
-    "postgresql": "fully operational",
-    "solr_collections": "14/15 (recording corrupted upstream)",
-    "workaround": "PostgreSQL direct queries for recordings",
-    "impact_on_interchord": "minimal - artist relationships work fine"
+  "context": {
+    "error_seen": "ERR_NAME_NOT_RESOLVED in browser",
+    "dns_status": "Cloudflare DNS resolves to 104.21.59.63, 172.67.216.159",
+    "server_status": "192.168.2.67 pingable from Mac",
+    "container_status": "interchord-tunnel Exited (0) 2 hours ago",
+    "likely_cause": "Server reboot and tunnel container not set to restart automatically"
   }
 }
