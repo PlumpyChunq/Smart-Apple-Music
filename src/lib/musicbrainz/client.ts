@@ -89,27 +89,47 @@ export function getServerStatus(): MusicBrainzServerStatus {
 /**
  * Manually trigger a recovery check (useful for UI "retry" buttons)
  * Returns true if recovery was successful
+ *
+ * This calls the server-side health check API because the browser
+ * cannot reach container-internal hostnames like host.containers.internal
  */
 export async function forceRecoveryCheck(): Promise<boolean> {
-  if (!LOCAL_MUSICBRAINZ_API) {
+  try {
+    // Call server-side health check API (it can reach the local DB)
+    const response = await fetch('/api/musicbrainz/health', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('[MusicBrainz] Health check API error:', response.status);
+      return false;
+    }
+
+    const data = await response.json();
+
+    // Update local state based on server response
+    if (data.isLocal) {
+      console.log('[MusicBrainz] Recovery successful! Server confirms local DB is available.');
+      localServerFailed = false;
+      usingLocalServer = true;
+      if (LOCAL_MUSICBRAINZ_API) {
+        currentServer = LOCAL_MUSICBRAINZ_API;
+      }
+      return true;
+    } else {
+      console.log('[MusicBrainz] Recovery failed. Server still using fallback API.');
+      localServerFailed = true;
+      usingLocalServer = false;
+      currentServer = PUBLIC_MUSICBRAINZ_API;
+      return false;
+    }
+  } catch (error) {
+    console.error('[MusicBrainz] Recovery check error:', error);
     return false;
   }
-
-  // Reset the last check time to force an immediate check
-  lastHealthCheckTime = 0;
-
-  const isHealthy = await checkLocalServerHealth();
-
-  if (isHealthy) {
-    console.log('[MusicBrainz] Manual recovery check successful! Switching back to local server.');
-    localServerFailed = false;
-    usingLocalServer = true;
-    currentServer = LOCAL_MUSICBRAINZ_API;
-    return true;
-  }
-
-  console.log('[MusicBrainz] Manual recovery check failed. Staying on public API.');
-  return false;
 }
 
 // Log which server is being used (only in development)
