@@ -476,16 +476,37 @@ export async function getArtistReleaseGroups(
   mbid: string,
   primaryTypes: string[] = ['Album']
 ): Promise<MusicBrainzReleaseGroup[]> {
-  const artist = await mbFetch<MusicBrainzArtistWithReleases>(`/artist/${mbid}`, {
-    inc: 'release-groups',
-  });
+  // Use browse endpoint with pagination to get ALL release groups (not just 25)
+  const allReleaseGroups: MusicBrainzReleaseGroup[] = [];
+  let offset = 0;
+  const limit = 100; // Max allowed by MusicBrainz API
+  let hasMore = true;
 
-  if (!artist['release-groups']) {
+  while (hasMore) {
+    const response = await mbFetch<{ 'release-groups': MusicBrainzReleaseGroup[]; 'release-group-count': number }>(
+      '/release-group',
+      {
+        artist: mbid,
+        limit: String(limit),
+        offset: String(offset),
+      }
+    );
+
+    const groups = response['release-groups'] || [];
+    allReleaseGroups.push(...groups);
+
+    // Check if there are more to fetch
+    const totalCount = response['release-group-count'] || 0;
+    offset += groups.length;
+    hasMore = offset < totalCount && groups.length === limit;
+  }
+
+  if (allReleaseGroups.length === 0) {
     return [];
   }
 
   // Filter by primary type and exclude compilations/live albums by default
-  const filtered = artist['release-groups'].filter(rg => {
+  const filtered = allReleaseGroups.filter(rg => {
     const primaryType = rg['primary-type'];
     const secondaryTypes = rg['secondary-types'] || [];
 
