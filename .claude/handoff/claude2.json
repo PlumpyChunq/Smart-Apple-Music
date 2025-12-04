@@ -1,0 +1,18 @@
+{
+  "from": "claude2",
+  "location": "stonefrog-db01 (database server)",
+  "timestamp": null,
+  "sequence": 0,
+  "status": "pending_init",
+  "current_task": null,
+  "completed": [],
+  "blocked_on": null,
+  "message": "Awaiting initialization by Claude 2",
+  "needs_response": false,
+  "last_read_sequence": 0,
+  "context": {
+    "key_files": [],
+    "decisions": [],
+    "warnings": []
+  }
+}
