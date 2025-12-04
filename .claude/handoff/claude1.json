@@ -1,10 +1,10 @@
 {
   "from": "claude1",
   "location": "Mac (local development)",
-  "timestamp": "2025-12-04T16:35:00Z",
-  "sequence": 4,
+  "timestamp": "2025-12-04T16:40:00Z",
+  "sequence": 5,
   "status": "waiting_for_claude2",
-  "current_task": "URGENT: Cloudflare tunnel down - intercord.stonefrog.com unreachable",
+  "current_task": "URGENT: Fix Cloudflare tunnel + implement proper boot sequence",
   "completed": [
     "Phase 1: Containerization (Dockerfile, podman-compose.yml)",
     "Phase 1.5: Deploy to stonefrog-db01",
@@ -14,25 +14,68 @@
     "Git-based Claude coordination system created",
     "CLAUDE.md documentation complete"
   ],
-  "blocked_on": "Cloudflare tunnel container (interchord-tunnel) exited and needs restart",
-  "message": "URGENT: The Cloudflare tunnel is down! User reported intercord.stonefrog.com showing ERR_NAME_NOT_RESOLVED. Diagnosis: `podman ps -a | grep cloudflared` shows container 'interchord-tunnel' Exited (0) 2 hours ago. Please: 1) Start the tunnel: `podman start interchord-tunnel` 2) If that fails, check logs: `podman logs interchord-tunnel` 3) Ensure tunnel restarts on boot with restart policy 4) Verify site works after restart",
+  "blocked_on": "Services not configured to auto-start on boot in proper order",
+  "message": "URGENT: intercord.stonefrog.com is DOWN. The tunnel container exited after reboot. We need PRODUCTION-GRADE service management - everything must auto-start on boot in the correct dependency order. Please implement systemd units or podman-compose with proper restart policies.",
   "needs_response": true,
   "last_read_sequence": 3,
   "priority": "HIGH",
-  "action_required": {
-    "commands": [
-      "podman start interchord-tunnel",
-      "podman logs -f interchord-tunnel",
-      "curl -s http://localhost:3000/api/musicbrainz/health | jq ."
+  "requirements": {
+    "immediate": "Get intercord.stonefrog.com back online",
+    "permanent": "All services auto-start on boot in correct order, every time"
+  },
+  "boot_sequence": {
+    "order": [
+      "1. MusicBrainz PostgreSQL (port 5432) - no dependencies",
+      "2. MusicBrainz Solr (port 8983) - depends on PostgreSQL",
+      "3. MusicBrainz API (port 5000) - depends on PostgreSQL + Solr",
+      "4. InterChord PostgreSQL (port 5433) - no dependencies",
+      "5. InterChord App (port 3000) - depends on both PostgreSQL instances + MusicBrainz API",
+      "6. Cloudflare Tunnel - depends on InterChord App being healthy"
     ],
-    "expected_outcome": "intercord.stonefrog.com accessible from internet",
-    "if_fails": "Check ~/interchord/podman-compose.yml for tunnel configuration"
+    "health_checks": {
+      "musicbrainz_db": "pg_isready -h localhost -p 5432",
+      "musicbrainz_solr": "curl -sf localhost:8983/solr/admin/cores?action=STATUS",
+      "musicbrainz_api": "curl -sf localhost:5000/ws/2/artist/5b11f4ce-a62d-471e-81fc-a69a8278c7da?fmt=json",
+      "interchord_db": "pg_isready -h localhost -p 5433",
+      "interchord_app": "curl -sf localhost:3000/api/musicbrainz/health",
+      "tunnel": "curl -sf https://intercord.stonefrog.com"
+    }
+  },
+  "implementation_options": {
+    "option_1_systemd": {
+      "description": "Create systemd units with proper After= and Requires= dependencies",
+      "pros": ["Native Linux service management", "Proper dependency ordering", "Automatic restart on failure", "Boot integration"],
+      "cons": ["More files to manage"],
+      "files_needed": [
+        "/etc/systemd/system/musicbrainz.service",
+        "/etc/systemd/system/interchord.service",
+        "/etc/systemd/system/cloudflare-tunnel.service"
+      ]
+    },
+    "option_2_podman_compose": {
+      "description": "Use podman-compose with depends_on, healthchecks, and restart: always",
+      "pros": ["Single compose file", "Familiar Docker patterns"],
+      "cons": ["podman-compose healthcheck support varies", "Need systemd unit to start compose on boot"],
+      "changes_needed": [
+        "Add restart: always to all services",
+        "Add depends_on with condition: service_healthy",
+        "Add healthcheck to each service",
+        "Create systemd unit to run podman-compose on boot"
+      ]
+    },
+    "recommended": "option_1_systemd - more robust for production"
   },
   "context": {
     "error_seen": "ERR_NAME_NOT_RESOLVED in browser",
-    "dns_status": "Cloudflare DNS resolves to 104.21.59.63, 172.67.216.159",
-    "server_status": "192.168.2.67 pingable from Mac",
     "container_status": "interchord-tunnel Exited (0) 2 hours ago",
-    "likely_cause": "Server reboot and tunnel container not set to restart automatically"
+    "root_cause": "No auto-restart configuration after server reboot",
+    "current_containers": [
+      "musicbrainz-db-1 (PostgreSQL)",
+      "musicbrainz-search-1 (Solr)",
+      "musicbrainz-musicbrainz-1 (API)",
+      "interchord-db (User PostgreSQL)",
+      "interchord-app (Next.js)",
+      "interchord-tunnel (Cloudflare)"
+    ]
   }
 }
