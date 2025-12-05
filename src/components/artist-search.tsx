@@ -218,44 +218,7 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
         </Button>
       </div>
 
-      {/* Favorites Section - Grouped by Genre */}
-      {favorites.length > 0 && (
-        <FavoritesByGenre
-          favorites={favorites}
-          onSelectArtist={handleQuickSelect}
-          onUpdateArtistGenre={updateArtistGenre}
-        />
-      )}
-
-      {/* Recent Searches Section */}
-      {recentSearches.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Recent Searches</span>
-            <button
-              onClick={clearRecentSearches}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              Clear
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {recentSearches.map((artist) => (
-              <Button
-                key={artist.id}
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickSelect(artist)}
-                className="text-xs"
-              >
-                {artist.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-
-
+      {/* Search Results - appear first when there's a search */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           Error: {error.message}
@@ -334,6 +297,43 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
           </div>
         );
       })()}
+
+      {/* Favorites Section - Grouped by Genre */}
+      {favorites.length > 0 && (
+        <FavoritesByGenre
+          favorites={favorites}
+          onSelectArtist={handleQuickSelect}
+          onUpdateArtistGenre={updateArtistGenre}
+        />
+      )}
+
+      {/* Recent Searches Section */}
+      {recentSearches.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Recent Searches</span>
+            <button
+              onClick={clearRecentSearches}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {recentSearches.map((artist) => (
+              <Button
+                key={artist.id}
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickSelect(artist)}
+                className="text-xs"
+              >
+                {artist.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
