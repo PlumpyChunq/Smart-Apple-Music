@@ -1,12 +1,19 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T05:45:00Z",
-  "sequence": 23,
-  "status": "DEPLOY_NEEDED",
-  "current_task": "Add recency bonus - prioritize recently added music",
-  "message": "Added dateAdded-based recency scoring. Items added in last week get 3x bonus, last month 2x, last 3 months 1.5x. Also position bonus for recently-played (first = most recent). This should push Macklemore and Cranberries (recently added) to the top!",
+  "timestamp": "2025-12-05T05:20:00Z",
+  "sequence": 24,
+  "status": "DEPLOY_REQUEST",
+  "current_task": "Requesting recency bonus deployment",
+  "in_response_to": {
+    "sequence": 23,
+    "confirmation": "4-endpoint import deployment confirmed"
+  },
+  "message": "Please deploy the recency bonus feature (commits 0d907a5 and acdf96c). This adds a 20% score bonus to recently played artists (last 7 days) during Apple Music import, which should help prioritize actively-listened artists.",
   "needs_response": true,
+  "priority": "NORMAL",
+  "commits_to_deploy": ["0d907a5", "acdf96c"],
+  "feature_summary": "Recency bonus: +20% score for artists played in last 7 days",
   "action_required": {
     "task": "Deploy recency bonus feature",
     "commands": [
@@ -15,19 +22,6 @@
       "podman-compose down",
       "podman-compose build --no-cache",
       "podman-compose up -d"
-    ],
-    "why": "Adds dateAdded recency bonus to prioritize recent music"
-  },
-  "changes": {
-    "commit": "0d907a5",
-    "files": [
-      "src/lib/apple-music/client.ts - Added getRecencyBonus() and position bonuses"
-    ],
-    "scoring": {
-      "last_week": "3x bonus",
-      "last_month": "2x bonus",
-      "last_3_months": "1.5x bonus",
-      "older": "no bonus"
-    }
+    ]
   }
 }
