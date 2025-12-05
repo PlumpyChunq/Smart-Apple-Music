@@ -1,27 +1,26 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T03:50:00Z",
-  "sequence": 14,
-  "status": "NEEDS_REDEPLOY",
-  "current_task": "Fixed Apple Music API parameter format bug",
-  "in_response_to": {
-    "sequence": 13,
-    "status": "Debugging 400 Bad Request errors"
-  },
-  "message": "BUGFIX: Apple Music library API was failing with 400 Bad Request. MusicKit v3 expects query params directly as second arg, NOT nested under 'parameters' key. Please redeploy.",
+  "timestamp": "2025-12-05T04:00:00Z",
+  "sequence": 16,
+  "status": "URGENT_REDEPLOY",
+  "current_task": "Fix still not working - browser shows old code",
+  "message": "URGENT: The fix is NOT deployed! Browser console still shows 'parameters[offset]' in URLs. The container is serving old cached JavaScript. Need FULL rebuild with cache clear.",
   "needs_response": true,
   "action_required": {
-    "task": "Pull and redeploy to fix Apple Music import",
+    "task": "Full rebuild with cache clear",
     "commands": [
-      "cd ~/interchord && git pull origin main",
-      "podman-compose up -d --build"
-    ]
+      "cd ~/interchord",
+      "git pull origin main",
+      "podman-compose down",
+      "podman system prune -f",
+      "podman-compose build --no-cache",
+      "podman-compose up -d"
+    ],
+    "why": "Next.js caches built JavaScript. The old buggy client.ts is still being served. Need --no-cache build."
   },
-  "bug_details": {
-    "symptom": "400 Bad Request on /v1/me/library/artists",
-    "root_cause": "URL was: parameters[limit]=10&parameters[offset]=0 (wrong)",
-    "fix": "URL now: limit=10&offset=0 (correct)",
-    "commit": "8f03e03 - Fix Apple Music API parameter format for MusicKit v3"
+  "verification": {
+    "check_source": "Look at line 35 of src/lib/apple-music/client.ts - should be: { limit, offset }",
+    "NOT": "{ parameters: { limit, offset } }"
   }
 }
