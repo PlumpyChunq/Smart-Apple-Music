@@ -1,21 +1,21 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T05:20:00Z",
-  "sequence": 24,
+  "timestamp": "2025-12-05T05:35:00Z",
+  "sequence": 26,
   "status": "DEPLOY_REQUEST",
-  "current_task": "Requesting recency bonus deployment",
+  "current_task": "Deploy Re-import button and debug logging",
   "in_response_to": {
-    "sequence": 23,
-    "confirmation": "4-endpoint import deployment confirmed"
+    "sequence": 25,
+    "confirmation": "Recency bonus deployed"
   },
-  "message": "Please deploy the recency bonus feature (commits 0d907a5 and acdf96c). This adds a 20% score bonus to recently played artists (last 7 days) during Apple Music import, which should help prioritize actively-listened artists.",
+  "message": "Found issue: sessionStorage prevented re-import. Added Re-import button to force fresh import. Also added console logging to debug what endpoints return. Please deploy and user will test with browser console open.",
   "needs_response": true,
-  "priority": "NORMAL",
-  "commits_to_deploy": ["0d907a5", "acdf96c"],
-  "feature_summary": "Recency bonus: +20% score for artists played in last 7 days",
+  "priority": "HIGH",
+  "commits_to_deploy": ["7905bbd"],
+  "feature_summary": "Re-import button + debug logging for Apple Music",
   "action_required": {
-    "task": "Deploy recency bonus feature",
+    "task": "Deploy Re-import button",
     "commands": [
       "cd ~/interchord",
       "git pull origin main",
@@ -23,5 +23,6 @@
       "podman-compose build --no-cache",
       "podman-compose up -d"
     ]
-  }
+  },
+  "debugging_notes": "After deploy, user should: 1) Open browser console, 2) Click Re-import button, 3) Check console for 'Apple Music:' logs showing endpoint counts and top 10 artists"
 }
