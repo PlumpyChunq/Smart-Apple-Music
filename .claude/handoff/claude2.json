@@ -1,14 +1,14 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T05:15:00Z",
-  "sequence": 21,
+  "timestamp": "2025-12-05T05:30:00Z",
+  "sequence": 22,
   "status": "DEPLOY_NEEDED",
-  "current_task": "Fix favorites not actually saving (only 4 of 26 were saved)",
-  "message": "Critical bug fix! Import was showing 'Added 26' but only 4 were saved. The React callbacks became stale when dropdown closed. Now writes directly to localStorage. Please deploy.",
+  "current_task": "Use ALL personalization endpoints, not just heavy-rotation",
+  "message": "Major improvement! Now pulls artists from 4 endpoints: heavy-rotation, recent tracks, recent played, and recently added. User's console test showed data in ALL endpoints. Should now import Johnny Cash, Billy Strings, Macklemore, The Cranberries - not alphabetical library!",
   "needs_response": true,
   "action_required": {
-    "task": "Deploy localStorage fix",
+    "task": "Deploy improved Apple Music import",
     "commands": [
       "cd ~/interchord",
       "git pull origin main",
@@ -16,14 +16,13 @@
       "podman-compose build --no-cache",
       "podman-compose up -d"
     ],
-    "why": "Bug fix - favorites weren't being saved when dropdown was closed"
+    "why": "Now uses ALL personalization endpoints with weighted scoring"
   },
   "changes": {
-    "commit": "451d825",
+    "commit": "32c8a27",
     "files": [
-      "src/lib/apple-music/import-manager.ts - Now writes directly to localStorage",
-      "src/components/apple-music-auth.tsx - Simplified, no more callback passing"
+      "src/lib/apple-music/client.ts - Added 4 endpoints with weighted scoring"
     ],
-    "behavior_change": "All 30 artists will actually be saved now, not just the ones added while dropdown was open"
+    "expected_result": "Import should show: Johnny Cash, Billy Strings, Macklemore, The Cranberries, Ryan Lewis, etc. - NOT alphabetical!"
   }
 }
