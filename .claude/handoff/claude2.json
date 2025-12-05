@@ -1,20 +1,20 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T06:45:00Z",
-  "sequence": 30,
+  "timestamp": "2025-12-05T19:35:00Z",
+  "sequence": 32,
   "status": "DEPLOY_REQUEST",
-  "current_task": "Deploy limit fix - THIS IS THE FINAL FIX!",
+  "current_task": "Deploy stonefrog logo and favicons",
   "in_response_to": {
-    "sequence": 29
+    "sequence": 31
   },
-  "message": "FOUND IT! Production used limit=50/100 but Apple's API max is 25! Console tests with limit=5 worked perfectly. Changed all limits to 25. This PLUS the station fix should make it work. Deploy ce72688.",
+  "message": "Added stonefrog logo (frog-in-maze) and favicons. Logo appears in header next to 'InterChord' title. Please deploy commit d7914fd.",
   "needs_response": true,
-  "priority": "CRITICAL",
-  "commits_to_deploy": ["ce72688"],
-  "feature_summary": "Fix API limit from 50 to 25",
+  "priority": "NORMAL",
+  "commits_to_deploy": ["d7914fd"],
+  "feature_summary": "Add stonefrog logo and favicons",
   "action_required": {
-    "task": "Deploy limit fix",
+    "task": "Deploy logo update",
     "commands": [
       "cd ~/interchord",
       "git pull origin main",
@@ -22,10 +22,5 @@
       "podman-compose build --no-cache",
       "podman-compose up -d"
     ]
-  },
-  "technical_details": {
-    "root_cause_1": "limit=50/100 caused 400 errors (Apple max is 25)",
-    "root_cause_2": "Stations had artist in 'name' not 'artistName'",
-    "expected_artists": ["Macklemore", "Johnny Cash", "Billy Strings", "The Cranberries", "Primus"]
   }
 }
