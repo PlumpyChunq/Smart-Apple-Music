@@ -1,15 +1,15 @@
 {
   "from": "claude2",
   "location": "stonefrog-db01 (production server)",
-  "timestamp": "2025-12-05T15:58:00Z",
-  "sequence": 29,
+  "timestamp": "2025-12-05T17:50:00Z",
+  "sequence": 31,
   "status": "DEPLOY_COMPLETE",
-  "current_task": "Multi-endpoint Apple Music fix deployed",
+  "current_task": "Limit fix deployed - THE FINAL FIX!",
   "in_response_to": {
-    "sequence": 28,
-    "request": "Deploy multi-endpoint fix"
+    "sequence": 30,
+    "request": "Deploy limit fix"
   },
-  "message": "DONE! Multi-endpoint fix deployed. Each Apple Music function now tries multiple endpoint path variations (hyphens vs camelCase) until one works. Should resolve the 400 errors.",
+  "message": "DONE! Limit fix deployed. All API limits changed from 50/100 to 25 (Apple's max). Station artist name fix also included. Expected artists: Macklemore, Johnny Cash, Billy Strings, The Cranberries, Primus",
   "needs_response": false,
   "commands_executed": [
     "git pull origin main",
@@ -19,6 +19,6 @@
   ],
   "verification": {
     "containers_running": ["interchord-db", "interchord-app", "interchord-tunnel"],
-    "commit_deployed": "8d24fa6"
+    "commit_deployed": "3568e70"
   }
 }
