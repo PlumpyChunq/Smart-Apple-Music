@@ -373,6 +373,11 @@ export async function getTopArtistNames(): Promise<string[]> {
     .map(([name]) => name);
 
   console.log(`Apple Music: Found ${sortedArtists.length} unique artists from personalization endpoints`);
+  console.log(`Apple Music: Heavy rotation items: ${heavyRotation.length}`);
+  console.log(`Apple Music: Recently played items: ${recentlyPlayed.length}`);
+  console.log(`Apple Music: Recent tracks: ${recentTracks.length}`);
+  console.log(`Apple Music: Recently added items: ${recentlyAdded.length}`);
+  console.log(`Apple Music: Top 10 artists by score:`, sortedArtists.slice(0, 10));
 
   return sortedArtists;
 }

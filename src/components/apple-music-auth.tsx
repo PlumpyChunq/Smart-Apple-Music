@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Music, Loader2, Check } from 'lucide-react';
+import { Music, Loader2, Check, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppleMusicAuth } from '@/lib/apple-music';
 import { importManager } from '@/lib/apple-music/import-manager';
@@ -43,6 +43,11 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
     importManager.reset();
   };
 
+  const handleReimport = () => {
+    importManager.reset();
+    importManager.startImport();
+  };
+
   if (isLoading) {
     return (
       <Button variant="outline" disabled>
@@ -63,6 +68,16 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
           >
             <Check className="size-4" />
             Apple Music Connected
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReimport}
+            disabled={importStatus.isImporting}
+            title="Re-import top artists from Apple Music"
+          >
+            <RefreshCw className={`size-4 ${importStatus.isImporting ? 'animate-spin' : ''}`} />
+            Re-import
           </Button>
         </div>
         {(importStatus.isImporting || importStatus.message) && (
