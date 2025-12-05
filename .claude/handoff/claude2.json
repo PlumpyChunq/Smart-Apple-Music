@@ -1,14 +1,14 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T04:00:00Z",
-  "sequence": 16,
-  "status": "URGENT_REDEPLOY",
-  "current_task": "Fix still not working - browser shows old code",
-  "message": "URGENT: The fix is NOT deployed! Browser console still shows 'parameters[offset]' in URLs. The container is serving old cached JavaScript. Need FULL rebuild with cache clear.",
+  "timestamp": "2025-12-05T04:15:00Z",
+  "sequence": 17,
+  "status": "DEPLOY_NEEDED",
+  "current_task": "Improved Apple Music import - use heavy rotation instead of alphabetical",
+  "message": "Major improvement to Apple Music import! Now fetches most-played artists instead of alphabetical library order. Uses /v1/me/history/heavy-rotation and /v1/me/recent/played APIs with weighted scoring. Please deploy with full rebuild.",
   "needs_response": true,
   "action_required": {
-    "task": "Full rebuild with cache clear",
+    "task": "Deploy improved Apple Music import",
     "commands": [
       "cd ~/interchord",
       "git pull origin main",
@@ -17,10 +17,14 @@
       "podman-compose build --no-cache",
       "podman-compose up -d"
     ],
-    "why": "Next.js caches built JavaScript. The old buggy client.ts is still being served. Need --no-cache build."
+    "why": "New heavy rotation import code needs fresh build. Previous alphabetical import was not useful."
   },
-  "verification": {
-    "check_source": "Look at line 35 of src/lib/apple-music/client.ts - should be: { limit, offset }",
-    "NOT": "{ parameters: { limit, offset } }"
+  "changes": {
+    "commit": "383c2f5",
+    "files": [
+      "src/lib/apple-music/client.ts - Added getHeavyRotation(), getRecentlyPlayed(), getCuratedTopArtists()",
+      "src/components/apple-music-auth.tsx - Updated import logic to use curated top artists"
+    ],
+    "behavior_change": "Apple Music import now fetches 30 most-played artists by frequency, not 10 alphabetical library artists"
   }
 }
