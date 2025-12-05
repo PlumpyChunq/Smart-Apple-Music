@@ -28,25 +28,42 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
     }
   }, []);
 
-  // Auto-import top 10 artists when first connected
+  // Import top artists from heavy rotation + recently played (like Spotify)
   const importTopArtists = useCallback(async () => {
     if (hasImported || isImporting) return;
 
     setIsImporting(true);
-    setImportStatus('Fetching your library...');
+    setImportStatus('Fetching your most played music...');
 
     try {
       // Dynamically import to avoid SSR issues
-      const { getTopLibraryArtists } = await import('@/lib/apple-music/client');
-      const topArtists = await getTopLibraryArtists(10);
+      const { getCuratedTopArtists, getTopLibraryArtists } = await import('@/lib/apple-music/client');
 
-      setImportStatus(`Found ${topArtists.length} artists. Matching...`);
+      // Try to get artists from heavy rotation + recently played first
+      let artistNames = await getCuratedTopArtists(30);
+
+      // Fallback to library if heavy rotation is empty (new account or no play history)
+      if (artistNames.length === 0) {
+        setImportStatus('No play history found. Fetching library...');
+        const libraryArtists = await getTopLibraryArtists(30);
+        artistNames = libraryArtists.map(a => a.attributes.name);
+      }
+
+      if (artistNames.length === 0) {
+        setImportStatus('No artists found in your Apple Music.');
+        setHasImported(true);
+        sessionStorage.setItem('apple-music-imported', 'true');
+        return;
+      }
+
+      setImportStatus(`Found ${artistNames.length} top artists. Matching with MusicBrainz...`);
 
       let imported = 0;
-      for (const appleMusicArtist of topArtists) {
-        // Search MusicBrainz for this artist
-        const artistName = appleMusicArtist.attributes.name;
-        setImportStatus(`Matching "${artistName}"...`);
+      let processed = 0;
+
+      for (const artistName of artistNames) {
+        processed++;
+        setImportStatus(`Matching "${artistName}" (${processed}/${artistNames.length})...`);
 
         try {
           const mbResults = await searchArtists(artistName, 1);
@@ -70,7 +87,11 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
         }
       }
 
-      setImportStatus(imported > 0 ? `Added ${imported} artists to favorites!` : 'All artists already in favorites');
+      const message = imported > 0
+        ? `Added ${imported} new artist${imported !== 1 ? 's' : ''} to favorites!`
+        : 'All artists already in favorites';
+
+      setImportStatus(message);
       setHasImported(true);
       sessionStorage.setItem('apple-music-imported', 'true');
 
@@ -81,7 +102,7 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
       }, 3000);
     } catch (err) {
       console.error('Error importing artists:', err);
-      setImportStatus('Failed to import artists');
+      setImportStatus('Failed to import artists. Try again later.');
     } finally {
       setIsImporting(false);
     }

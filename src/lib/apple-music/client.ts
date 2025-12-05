@@ -202,3 +202,108 @@ export async function getCatalogArtistAlbums(
     return [];
   }
 }
+
+// Types for heavy rotation and recently played responses
+interface HeavyRotationItem {
+  id: string;
+  type: string;
+  attributes: {
+    name?: string;
+    artistName?: string;
+    artwork?: { url: string };
+  };
+}
+
+interface RecentlyPlayedItem {
+  id: string;
+  type: string;
+  attributes: {
+    name?: string;
+    artistName?: string;
+  };
+}
+
+/**
+ * Get user's heavy rotation (most frequently played)
+ * This is the Apple Music equivalent of Spotify's "top artists"
+ */
+export async function getHeavyRotation(limit: number = 25): Promise<HeavyRotationItem[]> {
+  const music = await ensureAuthorized();
+
+  try {
+    const response = await music.api.music<{ data: HeavyRotationItem[] }>(
+      '/v1/me/history/heavy-rotation',
+      { limit }
+    );
+
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching heavy rotation:', error);
+    return [];
+  }
+}
+
+/**
+ * Get user's recently played items
+ */
+export async function getRecentlyPlayed(limit: number = 25): Promise<RecentlyPlayedItem[]> {
+  const music = await ensureAuthorized();
+
+  try {
+    const response = await music.api.music<{ data: RecentlyPlayedItem[] }>(
+      '/v1/me/recent/played',
+      { limit }
+    );
+
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching recently played:', error);
+    return [];
+  }
+}
+
+/**
+ * Extract unique artist names from heavy rotation and recently played
+ * Returns artists in order of frequency/recency (best matches first)
+ */
+export async function getTopArtistNames(): Promise<string[]> {
+  const [heavyRotation, recentlyPlayed] = await Promise.all([
+    getHeavyRotation(50),
+    getRecentlyPlayed(50),
+  ]);
+
+  // Track artist frequency
+  const artistCounts = new Map<string, number>();
+
+  // Heavy rotation items get more weight (x3)
+  for (const item of heavyRotation) {
+    const artistName = item.attributes.artistName;
+    if (artistName) {
+      artistCounts.set(artistName, (artistCounts.get(artistName) || 0) + 3);
+    }
+  }
+
+  // Recently played items get normal weight
+  for (const item of recentlyPlayed) {
+    const artistName = item.attributes.artistName;
+    if (artistName) {
+      artistCounts.set(artistName, (artistCounts.get(artistName) || 0) + 1);
+    }
+  }
+
+  // Sort by count (most frequent first) and return names
+  const sortedArtists = Array.from(artistCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
+
+  return sortedArtists;
+}
+
+/**
+ * Get curated top artists - combines heavy rotation + recently played
+ * This is the main function for importing (similar to Spotify's getCuratedTopArtists)
+ */
+export async function getCuratedTopArtists(maxArtists: number = 30): Promise<string[]> {
+  const artistNames = await getTopArtistNames();
+  return artistNames.slice(0, maxArtists);
+}
