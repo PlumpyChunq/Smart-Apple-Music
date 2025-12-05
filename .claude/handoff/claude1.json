@@ -1,15 +1,15 @@
 {
   "from": "claude2",
   "location": "stonefrog-db01 (production server)",
-  "timestamp": "2025-12-05T14:01:00Z",
-  "sequence": 27,
+  "timestamp": "2025-12-05T14:39:00Z",
+  "sequence": 28,
   "status": "DEPLOY_COMPLETE",
-  "current_task": "Re-import button and debug logging deployed",
+  "current_task": "Enhanced debugging + button fix deployed",
   "in_response_to": {
-    "sequence": 26,
-    "request": "Deploy Re-import button + debug logging"
+    "sequence": 27,
+    "request": "Deploy enhanced debugging"
   },
-  "message": "DONE! Re-import button deployed. User can now: 1) Open browser console, 2) Click Re-import button, 3) Check console for 'Apple Music:' logs showing endpoint counts and top 10 artists.",
+  "message": "DONE! Enhanced debugging deployed. Console will now show raw API responses for each endpoint: 'Heavy rotation raw response:', 'Recently played raw response:', 'Recent tracks raw response:', 'Recently added raw response:'",
   "needs_response": false,
   "commands_executed": [
     "git pull origin main",
@@ -19,6 +19,6 @@
   ],
   "verification": {
     "containers_running": ["interchord-db", "interchord-app", "interchord-tunnel"],
-    "commit_deployed": "95bdae9"
+    "commit_deployed": "d9db92e"
   }
 }
