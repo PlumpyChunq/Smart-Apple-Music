@@ -29,14 +29,10 @@ export async function getLibraryArtists(
 ): Promise<LibraryArtistsResponse> {
   const music = await ensureAuthorized();
 
+  // MusicKit v3 expects query params directly, not nested under 'parameters'
   const response = await music.api.music<LibraryArtistsResponse>(
     '/v1/me/library/artists',
-    {
-      parameters: {
-        limit,
-        offset,
-      },
-    }
+    { limit, offset }
   );
 
   return response.data;
@@ -109,14 +105,13 @@ export async function searchCatalogArtist(
   const music = await initializeMusicKit();
 
   try {
+    // MusicKit v3 expects query params directly
     const response = await music.api.music<CatalogSearchResponse>(
       `/v1/catalog/${storefront}/search`,
       {
-        parameters: {
-          term: artistName,
-          types: 'artists',
-          limit: 5,
-        },
+        term: artistName,
+        types: 'artists',
+        limit: 5,
       }
     );
 
@@ -155,13 +150,10 @@ export async function getCatalogArtist(
   const music = await initializeMusicKit();
 
   try {
+    // MusicKit v3 expects query params directly
     const response = await music.api.music<{ data: AppleMusicArtist[] }>(
       `/v1/catalog/${storefront}/artists/${artistId}`,
-      {
-        parameters: {
-          include: 'albums',
-        },
-      }
+      { include: 'albums' }
     );
 
     const artist = response.data.data[0] || null;
@@ -195,13 +187,10 @@ export async function getCatalogArtistAlbums(
   const music = await initializeMusicKit();
 
   try {
+    // MusicKit v3 expects query params directly
     const response = await music.api.music<{ data: AppleMusicAlbum[] }>(
       `/v1/catalog/${storefront}/artists/${artistId}/albums`,
-      {
-        parameters: {
-          limit,
-        },
-      }
+      { limit }
     );
 
     const albums = response.data.data || [];

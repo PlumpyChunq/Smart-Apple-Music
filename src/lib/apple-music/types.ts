@@ -5,9 +5,10 @@ export interface MusicKitInstance {
   unauthorize(): Promise<void>;
   isAuthorized: boolean;
   api: {
+    // MusicKit v3: query params are passed directly as the second argument
     music<T = unknown>(
       path: string,
-      options?: { parameters?: Record<string, string | number> }
+      queryParameters?: Record<string, string | number | string[]>
     ): Promise<{ data: T }>;
   };
 }
