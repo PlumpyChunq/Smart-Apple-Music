@@ -1,14 +1,14 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T04:45:00Z",
-  "sequence": 19,
+  "timestamp": "2025-12-05T05:15:00Z",
+  "sequence": 21,
   "status": "DEPLOY_NEEDED",
-  "current_task": "Fix import reset bug when closing settings dropdown",
-  "message": "Bug fix: Import was resetting to 1 when user closed settings dropdown. Created singleton ImportManager that keeps import running in background. Please deploy.",
+  "current_task": "Fix favorites not actually saving (only 4 of 26 were saved)",
+  "message": "Critical bug fix! Import was showing 'Added 26' but only 4 were saved. The React callbacks became stale when dropdown closed. Now writes directly to localStorage. Please deploy.",
   "needs_response": true,
   "action_required": {
-    "task": "Deploy import persistence fix",
+    "task": "Deploy localStorage fix",
     "commands": [
       "cd ~/interchord",
       "git pull origin main",
@@ -16,14 +16,14 @@
       "podman-compose build --no-cache",
       "podman-compose up -d"
     ],
-    "why": "Bug fix - import was canceling when dropdown closed"
+    "why": "Bug fix - favorites weren't being saved when dropdown was closed"
   },
   "changes": {
-    "commit": "2b74116",
+    "commit": "451d825",
     "files": [
-      "src/lib/apple-music/import-manager.ts - NEW singleton to manage import state",
-      "src/components/apple-music-auth.tsx - Uses import manager instead of local state"
+      "src/lib/apple-music/import-manager.ts - Now writes directly to localStorage",
+      "src/components/apple-music-auth.tsx - Simplified, no more callback passing"
     ],
-    "behavior_change": "Import continues in background even if settings dropdown is closed"
+    "behavior_change": "All 30 artists will actually be saved now, not just the ones added while dropdown was open"
   }
 }
