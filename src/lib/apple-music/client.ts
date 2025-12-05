@@ -226,6 +226,7 @@ export async function getHeavyRotation(limit: number = 25): Promise<AppleMusicIt
       '/v1/me/history/heavy-rotation',
       { limit }
     );
+    console.log('Heavy rotation raw response:', JSON.stringify(response.data).slice(0, 500));
     return response.data.data || [];
   } catch (error) {
     console.error('Error fetching heavy rotation:', error);
@@ -244,6 +245,7 @@ export async function getRecentlyPlayed(limit: number = 25): Promise<AppleMusicI
       '/v1/me/recent/played',
       { limit }
     );
+    console.log('Recently played raw response:', JSON.stringify(response.data).slice(0, 500));
     return response.data.data || [];
   } catch (error) {
     console.error('Error fetching recently played:', error);
@@ -262,6 +264,7 @@ export async function getRecentlyPlayedTracks(limit: number = 25): Promise<Apple
       '/v1/me/recent/played/tracks',
       { limit }
     );
+    console.log('Recent tracks raw response:', JSON.stringify(response.data).slice(0, 500));
     return response.data.data || [];
   } catch (error) {
     console.error('Error fetching recently played tracks:', error);
@@ -280,6 +283,7 @@ export async function getRecentlyAdded(limit: number = 25): Promise<AppleMusicIt
       '/v1/me/library/recently-added',
       { limit }
     );
+    console.log('Recently added raw response:', JSON.stringify(response.data).slice(0, 500));
     return response.data.data || [];
   } catch (error) {
     console.error('Error fetching recently added:', error);

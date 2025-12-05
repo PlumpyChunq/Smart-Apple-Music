@@ -60,7 +60,7 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
   if (isAuthorized) {
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             onClick={handleDisconnect}
@@ -75,6 +75,7 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
             onClick={handleReimport}
             disabled={importStatus.isImporting}
             title="Re-import top artists from Apple Music"
+            className="h-9"
           >
             <RefreshCw className={`size-4 ${importStatus.isImporting ? 'animate-spin' : ''}`} />
             Re-import
