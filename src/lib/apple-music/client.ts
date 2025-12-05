@@ -203,8 +203,8 @@ export async function getCatalogArtistAlbums(
   }
 }
 
-// Types for heavy rotation and recently played responses
-interface HeavyRotationItem {
+// Types for Apple Music personalization responses
+interface AppleMusicItem {
   id: string;
   type: string;
   attributes: {
@@ -214,28 +214,17 @@ interface HeavyRotationItem {
   };
 }
 
-interface RecentlyPlayedItem {
-  id: string;
-  type: string;
-  attributes: {
-    name?: string;
-    artistName?: string;
-  };
-}
-
 /**
  * Get user's heavy rotation (most frequently played)
- * This is the Apple Music equivalent of Spotify's "top artists"
  */
-export async function getHeavyRotation(limit: number = 25): Promise<HeavyRotationItem[]> {
+export async function getHeavyRotation(limit: number = 25): Promise<AppleMusicItem[]> {
   const music = await ensureAuthorized();
 
   try {
-    const response = await music.api.music<{ data: HeavyRotationItem[] }>(
+    const response = await music.api.music<{ data: AppleMusicItem[] }>(
       '/v1/me/history/heavy-rotation',
       { limit }
     );
-
     return response.data.data || [];
   } catch (error) {
     console.error('Error fetching heavy rotation:', error);
@@ -244,17 +233,16 @@ export async function getHeavyRotation(limit: number = 25): Promise<HeavyRotatio
 }
 
 /**
- * Get user's recently played items
+ * Get user's recently played items (albums, playlists, stations)
  */
-export async function getRecentlyPlayed(limit: number = 25): Promise<RecentlyPlayedItem[]> {
+export async function getRecentlyPlayed(limit: number = 25): Promise<AppleMusicItem[]> {
   const music = await ensureAuthorized();
 
   try {
-    const response = await music.api.music<{ data: RecentlyPlayedItem[] }>(
+    const response = await music.api.music<{ data: AppleMusicItem[] }>(
       '/v1/me/recent/played',
       { limit }
     );
-
     return response.data.data || [];
   } catch (error) {
     console.error('Error fetching recently played:', error);
@@ -263,47 +251,114 @@ export async function getRecentlyPlayed(limit: number = 25): Promise<RecentlyPla
 }
 
 /**
- * Extract unique artist names from heavy rotation and recently played
- * Returns artists in order of frequency/recency (best matches first)
+ * Get user's recently played tracks (individual songs)
+ */
+export async function getRecentlyPlayedTracks(limit: number = 25): Promise<AppleMusicItem[]> {
+  const music = await ensureAuthorized();
+
+  try {
+    const response = await music.api.music<{ data: AppleMusicItem[] }>(
+      '/v1/me/recent/played/tracks',
+      { limit }
+    );
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching recently played tracks:', error);
+    return [];
+  }
+}
+
+/**
+ * Get user's recently added items to library
+ */
+export async function getRecentlyAdded(limit: number = 25): Promise<AppleMusicItem[]> {
+  const music = await ensureAuthorized();
+
+  try {
+    const response = await music.api.music<{ data: AppleMusicItem[] }>(
+      '/v1/me/library/recently-added',
+      { limit }
+    );
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching recently added:', error);
+    return [];
+  }
+}
+
+/**
+ * Extract unique artist names from all personalization endpoints
+ * Returns artists in order of relevance (weighted by source and frequency)
  */
 export async function getTopArtistNames(): Promise<string[]> {
-  const [heavyRotation, recentlyPlayed] = await Promise.all([
+  // Fetch from all sources in parallel
+  const [heavyRotation, recentlyPlayed, recentTracks, recentlyAdded] = await Promise.all([
     getHeavyRotation(50),
     getRecentlyPlayed(50),
+    getRecentlyPlayedTracks(100), // More tracks = more artist data
+    getRecentlyAdded(50),
   ]);
 
-  // Track artist frequency
+  // Track artist frequency with weighted scoring
   const artistCounts = new Map<string, number>();
 
-  // Heavy rotation items get more weight (x3)
+  const addArtist = (name: string | undefined, weight: number) => {
+    if (!name) return;
+    // Handle "Artist1 & Artist2" format - split and add both
+    const artists = name.split(/\s*[&,]\s*/).map(a => a.trim()).filter(a => a.length > 0);
+    for (const artist of artists) {
+      artistCounts.set(artist, (artistCounts.get(artist) || 0) + weight);
+    }
+  };
+
+  // Heavy rotation = highest weight (most played)
   for (const item of heavyRotation) {
-    const artistName = item.attributes.artistName;
-    if (artistName) {
-      artistCounts.set(artistName, (artistCounts.get(artistName) || 0) + 3);
+    addArtist(item.attributes.artistName, 5);
+    // If it's an artist item, use the name
+    if (item.type === 'artists') {
+      addArtist(item.attributes.name, 5);
     }
   }
 
-  // Recently played items get normal weight
+  // Recently played tracks = high weight (current listening)
+  for (const item of recentTracks) {
+    addArtist(item.attributes.artistName, 3);
+  }
+
+  // Recently played (albums/playlists) = medium weight
   for (const item of recentlyPlayed) {
-    const artistName = item.attributes.artistName;
-    if (artistName) {
-      artistCounts.set(artistName, (artistCounts.get(artistName) || 0) + 1);
-    }
+    addArtist(item.attributes.artistName, 2);
   }
 
-  // Sort by count (most frequent first) and return names
+  // Recently added = lower weight (might not have played yet)
+  for (const item of recentlyAdded) {
+    addArtist(item.attributes.artistName, 1);
+  }
+
+  // Sort by score (highest first) and return names
   const sortedArtists = Array.from(artistCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([name]) => name);
+
+  console.log(`Apple Music: Found ${sortedArtists.length} unique artists from personalization endpoints`);
 
   return sortedArtists;
 }
 
 /**
- * Get curated top artists - combines heavy rotation + recently played
+ * Get curated top artists - combines ALL personalization endpoints
  * This is the main function for importing (similar to Spotify's getCuratedTopArtists)
  */
 export async function getCuratedTopArtists(maxArtists: number = 30): Promise<string[]> {
   const artistNames = await getTopArtistNames();
-  return artistNames.slice(0, maxArtists);
+
+  // If we got artists from personalization, use those
+  if (artistNames.length > 0) {
+    console.log(`Apple Music: Using ${Math.min(artistNames.length, maxArtists)} artists from personalization`);
+    return artistNames.slice(0, maxArtists);
+  }
+
+  // If all personalization endpoints are empty, return empty (will fall back to library)
+  console.log('Apple Music: No personalization data found, will fall back to library');
+  return [];
 }
