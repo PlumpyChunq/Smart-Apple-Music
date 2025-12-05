@@ -211,6 +211,7 @@ interface AppleMusicItem {
     name?: string;
     artistName?: string;
     artwork?: { url: string };
+    dateAdded?: string; // ISO date string, e.g., "2024-12-01T10:30:00Z"
   };
 }
 
@@ -287,8 +288,29 @@ export async function getRecentlyAdded(limit: number = 25): Promise<AppleMusicIt
 }
 
 /**
+ * Calculate recency bonus based on dateAdded
+ * Items added in the last week get 3x bonus, last month 2x, last 3 months 1.5x
+ */
+function getRecencyBonus(dateAdded: string | undefined): number {
+  if (!dateAdded) return 1;
+
+  try {
+    const addedDate = new Date(dateAdded);
+    const now = new Date();
+    const daysSinceAdded = (now.getTime() - addedDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (daysSinceAdded <= 7) return 3;      // Last week: 3x bonus
+    if (daysSinceAdded <= 30) return 2;     // Last month: 2x bonus
+    if (daysSinceAdded <= 90) return 1.5;   // Last 3 months: 1.5x bonus
+    return 1;                                // Older: no bonus
+  } catch {
+    return 1;
+  }
+}
+
+/**
  * Extract unique artist names from all personalization endpoints
- * Returns artists in order of relevance (weighted by source and frequency)
+ * Returns artists in order of relevance (weighted by source, frequency, and recency)
  */
 export async function getTopArtistNames(): Promise<string[]> {
   // Fetch from all sources in parallel
@@ -302,8 +324,12 @@ export async function getTopArtistNames(): Promise<string[]> {
   // Track artist frequency with weighted scoring
   const artistCounts = new Map<string, number>();
 
-  const addArtist = (name: string | undefined, weight: number) => {
+  const addArtist = (name: string | undefined, baseWeight: number, dateAdded?: string) => {
     if (!name) return;
+    // Apply recency bonus to base weight
+    const recencyBonus = getRecencyBonus(dateAdded);
+    const weight = baseWeight * recencyBonus;
+
     // Handle "Artist1 & Artist2" format - split and add both
     const artists = name.split(/\s*[&,]\s*/).map(a => a.trim()).filter(a => a.length > 0);
     for (const artist of artists) {
@@ -313,26 +339,32 @@ export async function getTopArtistNames(): Promise<string[]> {
 
   // Heavy rotation = highest weight (most played)
   for (const item of heavyRotation) {
-    addArtist(item.attributes.artistName, 5);
+    addArtist(item.attributes.artistName, 5, item.attributes.dateAdded);
     // If it's an artist item, use the name
     if (item.type === 'artists') {
-      addArtist(item.attributes.name, 5);
+      addArtist(item.attributes.name, 5, item.attributes.dateAdded);
     }
   }
 
   // Recently played tracks = high weight (current listening)
-  for (const item of recentTracks) {
-    addArtist(item.attributes.artistName, 3);
+  // Note: recent tracks are already in recency order, give position bonus
+  for (let i = 0; i < recentTracks.length; i++) {
+    const item = recentTracks[i];
+    // First items get more weight (position bonus: 3 down to 1)
+    const positionBonus = Math.max(1, 3 - (i / recentTracks.length) * 2);
+    addArtist(item.attributes.artistName, 3 * positionBonus, item.attributes.dateAdded);
   }
 
-  // Recently played (albums/playlists) = medium weight
-  for (const item of recentlyPlayed) {
-    addArtist(item.attributes.artistName, 2);
+  // Recently played (albums/playlists) = medium weight with position bonus
+  for (let i = 0; i < recentlyPlayed.length; i++) {
+    const item = recentlyPlayed[i];
+    const positionBonus = Math.max(1, 2 - (i / recentlyPlayed.length));
+    addArtist(item.attributes.artistName, 2 * positionBonus, item.attributes.dateAdded);
   }
 
-  // Recently added = lower weight (might not have played yet)
+  // Recently added = gets recency bonus from dateAdded
   for (const item of recentlyAdded) {
-    addArtist(item.attributes.artistName, 1);
+    addArtist(item.attributes.artistName, 2, item.attributes.dateAdded);
   }
 
   // Sort by score (highest first) and return names
