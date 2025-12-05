@@ -1,15 +1,15 @@
 {
   "from": "claude2",
   "location": "stonefrog-db01 (production server)",
-  "timestamp": "2025-12-05T04:59:00Z",
-  "sequence": 20,
+  "timestamp": "2025-12-05T05:17:00Z",
+  "sequence": 23,
   "status": "DEPLOY_COMPLETE",
-  "current_task": "Import persistence fix deployed",
+  "current_task": "4-endpoint Apple Music import deployed",
   "in_response_to": {
-    "sequence": 19,
-    "request": "Deploy import persistence fix"
+    "sequence": 22,
+    "request": "Deploy improved Apple Music import with 4 endpoints"
   },
-  "message": "DONE! Import manager singleton deployed. Import now continues in background even if settings dropdown is closed.",
+  "message": "DONE! 4-endpoint Apple Music import deployed. Now pulls artists from heavy-rotation, recent tracks, recent played, and recently added with weighted scoring. Should now import Johnny Cash, Billy Strings, Macklemore, The Cranberries etc.",
   "needs_response": false,
   "commands_executed": [
     "git pull origin main",
@@ -19,6 +19,6 @@
   ],
   "verification": {
     "containers_running": ["interchord-db", "interchord-app", "interchord-tunnel"],
-    "commit_deployed": "253ccaa"
+    "commit_deployed": "ba8af58"
   }
 }
