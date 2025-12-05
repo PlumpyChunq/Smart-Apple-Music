@@ -387,13 +387,30 @@ export async function getTopArtistNames(): Promise<string[]> {
     }
   };
 
+  // Helper to extract artist from any item type
+  const getArtistFromItem = (item: AppleMusicItem): string | undefined => {
+    const type = item.type;
+    const attrs = item.attributes;
+
+    // For stations, the "name" field IS the artist name (e.g., "Johnny Cash", "Macklemore")
+    if (type === 'stations') {
+      return attrs.name;
+    }
+    // For songs, albums, library-albums, library-songs - use artistName
+    if (attrs.artistName && attrs.artistName !== 'Various Artists') {
+      return attrs.artistName;
+    }
+    // For artist items, use name
+    if (type === 'artists' || type === 'library-artists') {
+      return attrs.name;
+    }
+    return undefined;
+  };
+
   // Heavy rotation = highest weight (most played)
   for (const item of heavyRotation) {
-    addArtist(item.attributes.artistName, 5, item.attributes.dateAdded);
-    // If it's an artist item, use the name
-    if (item.type === 'artists') {
-      addArtist(item.attributes.name, 5, item.attributes.dateAdded);
-    }
+    const artist = getArtistFromItem(item);
+    addArtist(artist, 5, item.attributes.dateAdded);
   }
 
   // Recently played tracks = high weight (current listening)
@@ -402,19 +419,22 @@ export async function getTopArtistNames(): Promise<string[]> {
     const item = recentTracks[i];
     // First items get more weight (position bonus: 3 down to 1)
     const positionBonus = Math.max(1, 3 - (i / recentTracks.length) * 2);
-    addArtist(item.attributes.artistName, 3 * positionBonus, item.attributes.dateAdded);
+    const artist = getArtistFromItem(item);
+    addArtist(artist, 3 * positionBonus, item.attributes.dateAdded);
   }
 
-  // Recently played (albums/playlists) = medium weight with position bonus
+  // Recently played (albums/playlists/stations) = medium weight with position bonus
   for (let i = 0; i < recentlyPlayed.length; i++) {
     const item = recentlyPlayed[i];
     const positionBonus = Math.max(1, 2 - (i / recentlyPlayed.length));
-    addArtist(item.attributes.artistName, 2 * positionBonus, item.attributes.dateAdded);
+    const artist = getArtistFromItem(item);
+    addArtist(artist, 2 * positionBonus, item.attributes.dateAdded);
   }
 
   // Recently added = gets recency bonus from dateAdded
   for (const item of recentlyAdded) {
-    addArtist(item.attributes.artistName, 2, item.attributes.dateAdded);
+    const artist = getArtistFromItem(item);
+    addArtist(artist, 2, item.attributes.dateAdded);
   }
 
   // Sort by score (highest first) and return names
