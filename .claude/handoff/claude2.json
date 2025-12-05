@@ -1,20 +1,20 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T06:05:00Z",
-  "sequence": 28,
+  "timestamp": "2025-12-05T06:30:00Z",
+  "sequence": 29,
   "status": "DEPLOY_REQUEST",
-  "current_task": "Deploy multi-endpoint Apple Music fix",
+  "current_task": "Deploy Apple Music station fix - THE REAL FIX!",
   "in_response_to": {
-    "sequence": 27
+    "sequence": 28
   },
-  "message": "Console showed all 4 endpoints returning HTTP 400 errors. Apple's API docs show inconsistent naming. Now each function tries MULTIPLE endpoint paths. Please deploy commit e08c2be.",
+  "message": "FOUND THE BUG! APIs are working and returning data (Macklemore, Johnny Cash, The Cranberries). Problem was: stations have artist name in 'name' field not 'artistName'. Added getArtistFromItem() helper. Please deploy f591938.",
   "needs_response": true,
   "priority": "HIGH",
-  "commits_to_deploy": ["e08c2be"],
-  "feature_summary": "Try multiple API endpoint variations for Apple Music",
+  "commits_to_deploy": ["f591938"],
+  "feature_summary": "Fix artist extraction from Apple Music stations",
   "action_required": {
-    "task": "Deploy multi-endpoint fix",
+    "task": "Deploy station artist fix",
     "commands": [
       "cd ~/interchord",
       "git pull origin main",
@@ -24,8 +24,8 @@
     ]
   },
   "technical_details": {
-    "problem": "All endpoints returned 400 - Bad Request",
-    "cause": "Apple's API has inconsistent endpoint naming (hyphens vs camelCase)",
-    "solution": "Each function now tries multiple endpoint variations until one works"
+    "root_cause": "Apple Music stations store artist in 'name' field, not 'artistName'",
+    "data_seen": ["Macklemore (station)", "Johnny Cash (station)", "The Cranberries (library-album)"],
+    "fix": "getArtistFromItem() helper that handles stations vs albums vs songs correctly"
   }
 }
