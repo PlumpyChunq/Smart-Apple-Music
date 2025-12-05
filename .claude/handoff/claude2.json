@@ -1,20 +1,20 @@
 {
   "from": "claude1",
   "location": "Mac (local dev)",
-  "timestamp": "2025-12-05T05:50:00Z",
-  "sequence": 27,
+  "timestamp": "2025-12-05T06:05:00Z",
+  "sequence": 28,
   "status": "DEPLOY_REQUEST",
-  "current_task": "Deploy enhanced debugging + button fix",
+  "current_task": "Deploy multi-endpoint Apple Music fix",
   "in_response_to": {
-    "sequence": 26
+    "sequence": 27
   },
-  "message": "Added raw response logging for each Apple Music endpoint. This will show the actual API response structure in console. Also fixed Re-import button height. Please deploy commit a7fd5f8.",
+  "message": "Console showed all 4 endpoints returning HTTP 400 errors. Apple's API docs show inconsistent naming. Now each function tries MULTIPLE endpoint paths. Please deploy commit e08c2be.",
   "needs_response": true,
   "priority": "HIGH",
-  "commits_to_deploy": ["a7fd5f8"],
-  "feature_summary": "Raw API response logging for debugging",
+  "commits_to_deploy": ["e08c2be"],
+  "feature_summary": "Try multiple API endpoint variations for Apple Music",
   "action_required": {
-    "task": "Deploy enhanced debugging",
+    "task": "Deploy multi-endpoint fix",
     "commands": [
       "cd ~/interchord",
       "git pull origin main",
@@ -23,5 +23,9 @@
       "podman-compose up -d"
     ]
   },
-  "debugging_notes": "Console will now show: 'Heavy rotation raw response:', 'Recently played raw response:', 'Recent tracks raw response:', 'Recently added raw response:' - this will reveal if endpoints return data or empty"
+  "technical_details": {
+    "problem": "All endpoints returned 400 - Bad Request",
+    "cause": "Apple's API has inconsistent endpoint naming (hyphens vs camelCase)",
+    "solution": "Each function now tries multiple endpoint variations until one works"
+  }
 }
