@@ -4,8 +4,6 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useArtistSearch } from '@/lib/musicbrainz/hooks';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FavoritesRecentShows } from '@/components/favorites-recent-shows';
 import { FavoritesByGenre } from '@/components/favorites-by-genre';
 import { FAVORITES_KEY, type StoredArtist } from '@/lib/favorites';
 import type { ArtistNode } from '@/types';
@@ -18,13 +16,21 @@ interface ArtistSearchProps {
   onSelectArtist: (artist: ArtistNode) => void;
 }
 
+const INITIAL_RESULTS_DISPLAY = 5;
+
 export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<StoredArtist[]>([]);
   const [favorites, setFavorites] = useState<StoredArtist[]>([]);
+  const [showAllResults, setShowAllResults] = useState(false);
 
   const { data: results, isLoading, error } = useArtistSearch(searchQuery);
+
+  // Reset expansion when search query changes
+  useEffect(() => {
+    setShowAllResults(false);
+  }, [searchQuery]);
 
   // Load recent searches and favorites from localStorage on mount
   useEffect(() => {
@@ -249,10 +255,6 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
         </div>
       )}
 
-      {/* Recent Shows from Favorites */}
-      {favoriteArtistNames.length > 0 && !searchQuery && (
-        <FavoritesRecentShows artistNames={favoriteArtistNames} />
-      )}
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
@@ -266,49 +268,72 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
         </div>
       )}
 
-      {results && results.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm text-gray-500">
-            Found {results.length} result{results.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
-          </p>
-          <div className="grid gap-2">
-            {results.map((artist) => (
-              <Card
-                key={artist.id}
-                className="cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => handleSelectArtist(artist)}
-              >
-                <CardHeader className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{artist.name}</CardTitle>
+      {results && results.length > 0 && (() => {
+        const displayedResults = showAllResults
+          ? results
+          : results.slice(0, INITIAL_RESULTS_DISPLAY);
+        const hiddenCount = results.length - INITIAL_RESULTS_DISPLAY;
+
+        return (
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">
+              Found {results.length} result{results.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
+            </p>
+            <div className="space-y-1">
+              {displayedResults.map((artist) => (
+                <div
+                  key={artist.id}
+                  className="flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => handleSelectArtist(artist)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 truncate">{artist.name}</span>
                       {artist.disambiguation && (
-                        <CardDescription>{artist.disambiguation}</CardDescription>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                        {artist.type}
-                      </span>
-                      {artist.country && (
-                        <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                          {artist.country}
+                        <span className="text-xs text-gray-500 truncate hidden sm:inline">
+                          ({artist.disambiguation})
                         </span>
                       )}
                     </div>
+                    {artist.activeYears?.begin && (
+                      <p className="text-xs text-gray-400">
+                        {artist.activeYears.begin}
+                        {artist.activeYears.end ? `–${artist.activeYears.end}` : '–present'}
+                      </p>
+                    )}
                   </div>
-                  {artist.activeYears?.begin && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      {artist.activeYears.begin}
-                      {artist.activeYears.end ? ` – ${artist.activeYears.end}` : ' – present'}
-                    </p>
-                  )}
-                </CardHeader>
-              </Card>
-            ))}
+                  <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                    <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
+                      {artist.type}
+                    </span>
+                    {artist.country && (
+                      <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">
+                        {artist.country}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {hiddenCount > 0 && !showAllResults && (
+              <button
+                onClick={() => setShowAllResults(true)}
+                className="w-full py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                Show {hiddenCount} more result{hiddenCount !== 1 ? 's' : ''}
+              </button>
+            )}
+            {showAllResults && results.length > INITIAL_RESULTS_DISPLAY && (
+              <button
+                onClick={() => setShowAllResults(false)}
+                className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                Show less
+              </button>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
