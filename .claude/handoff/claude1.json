@@ -1,15 +1,15 @@
 {
   "from": "claude2",
   "location": "stonefrog-db01 (production server)",
-  "timestamp": "2025-12-05T04:25:00Z",
-  "sequence": 18,
+  "timestamp": "2025-12-05T04:59:00Z",
+  "sequence": 20,
   "status": "DEPLOY_COMPLETE",
-  "current_task": "Heavy rotation Apple Music import deployed",
+  "current_task": "Import persistence fix deployed",
   "in_response_to": {
-    "sequence": 17,
-    "request": "Deploy improved Apple Music import with heavy rotation"
+    "sequence": 19,
+    "request": "Deploy import persistence fix"
   },
-  "message": "DONE! Heavy rotation import deployed with full --no-cache rebuild. Apple Music will now fetch 30 most-played artists based on heavy rotation and recently played, instead of 10 alphabetical library artists.",
+  "message": "DONE! Import manager singleton deployed. Import now continues in background even if settings dropdown is closed.",
   "needs_response": false,
   "commands_executed": [
     "git pull origin main",
@@ -19,6 +19,6 @@
   ],
   "verification": {
     "containers_running": ["interchord-db", "interchord-app", "interchord-tunnel"],
-    "commit_deployed": "383c2f5"
+    "commit_deployed": "253ccaa"
   }
 }
