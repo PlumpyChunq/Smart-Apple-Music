@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo, useEffect, useCallback } from 'react';
+import { useMemo, useEffect, useCallback, useState } from 'react';
 import type { WikidataArtistBio, WikidataPlace } from '@/lib/wikidata';
 
 // Dynamically import the map component to avoid SSR issues
@@ -203,7 +203,13 @@ function MapLegend({ isMultiArtist }: { isMultiArtist: boolean }) {
   );
 }
 
-function MapContent({ locations, showTravelPath }: { locations: MapLocation[]; showTravelPath: boolean }) {
+interface MapContentProps {
+  locations: MapLocation[];
+  showTravelPath: boolean;
+  enableScrollZoom?: boolean;
+}
+
+function MapContent({ locations, showTravelPath, enableScrollZoom = false }: MapContentProps) {
   const bounds = useMemo(() => calculateBounds(locations), [locations]);
 
   // Create polyline path through locations in order (only for single artist)
@@ -237,7 +243,7 @@ function MapContent({ locations, showTravelPath }: { locations: MapLocation[]; s
       center={center}
       zoom={2}
       style={{ height: '100%', width: '100%' }}
-      scrollWheelZoom={false}
+      scrollWheelZoom={enableScrollZoom}
     >
       {/* Fit bounds after map mounts */}
       <FitBounds bounds={bounds} />
@@ -286,6 +292,8 @@ function MapContent({ locations, showTravelPath }: { locations: MapLocation[]; s
 }
 
 export function ArtistMap({ bio, bios, className = '', showTravelPath }: ArtistMapProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // Determine if this is multi-artist mode
   const isMultiArtist = !!bios && bios.length > 0;
 
@@ -313,28 +321,35 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath }: ArtistM
     return `map-${locationIds}`;
   }, [locations]);
 
-  // Handle double-click to open map in new window
+  // Handle double-click to open modal
   const handleDoubleClick = useCallback(() => {
-    const bounds = calculateBounds(locations);
-    if (!bounds) return;
+    setIsModalOpen(true);
+  }, []);
 
-    // Calculate center and zoom level for OpenStreetMap
-    const centerLat = (bounds[0][0] + bounds[1][0]) / 2;
-    const centerLng = (bounds[0][1] + bounds[1][1]) / 2;
+  // Handle closing modal
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
 
-    // Calculate zoom based on bounds span (rough estimate)
-    const latSpan = bounds[1][0] - bounds[0][0];
-    const lngSpan = bounds[1][1] - bounds[0][1];
-    const maxSpan = Math.max(latSpan, lngSpan);
-    // Rough zoom calculation: smaller span = higher zoom
-    const zoom = Math.max(2, Math.min(12, Math.floor(8 - Math.log2(maxSpan))));
+  // Handle keyboard events for modal (Escape to close)
+  useEffect(() => {
+    if (!isModalOpen) return;
 
-    // Build OpenStreetMap URL with markers
-    // For multiple locations, we'll use the bounding box view
-    const osmUrl = `https://www.openstreetmap.org/?mlat=${centerLat}&mlon=${centerLng}#map=${zoom}/${centerLat.toFixed(4)}/${centerLng.toFixed(4)}`;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
 
-    window.open(osmUrl, '_blank', 'noopener,noreferrer');
-  }, [locations]);
+    document.addEventListener('keydown', handleKeyDown);
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [isModalOpen]);
 
   // Don't render if no locations with coordinates
   if (locations.length === 0) {
@@ -346,25 +361,75 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath }: ArtistM
   }
 
   return (
-    <div
-      className={`relative ${className} cursor-pointer`}
-      style={{ height: '200px' }}
-      key={mapKey}
-      onDoubleClick={handleDoubleClick}
-      title="Double-click to open in OpenStreetMap"
-    >
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossOrigin=""
-      />
-      <MapContent locations={locations} showTravelPath={shouldShowPath} />
-      <MapLegend isMultiArtist={isMultiArtist} />
-      {/* Hint for double-click */}
-      <div className="absolute top-1 right-1 z-[1000] bg-white/80 rounded px-1.5 py-0.5 text-[10px] text-gray-500 pointer-events-none">
-        Double-click to expand
+    <>
+      {/* Inline map in sidebar */}
+      <div
+        className={`relative ${className} cursor-pointer`}
+        style={{ height: '200px' }}
+        key={mapKey}
+        onDoubleClick={handleDoubleClick}
+        title="Double-click to expand"
+      >
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossOrigin=""
+        />
+        <MapContent locations={locations} showTravelPath={shouldShowPath} />
+        <MapLegend isMultiArtist={isMultiArtist} />
+        {/* Hint for double-click */}
+        <div className="absolute top-1 right-1 z-[1000] bg-white/80 rounded px-1.5 py-0.5 text-[10px] text-gray-500 pointer-events-none">
+          Double-click to expand
+        </div>
       </div>
-    </div>
+
+      {/* Fullscreen modal */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center p-4"
+          onClick={handleCloseModal}
+        >
+          <div
+            className="relative bg-white rounded-lg w-full h-full max-w-[95vw] max-h-[90vh] overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={handleCloseModal}
+              className="absolute top-3 right-3 z-[10001] bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg transition-colors"
+              title="Close (Escape)"
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Title */}
+            <div className="absolute top-3 left-3 z-[10001] bg-white/90 rounded px-3 py-1.5 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800">
+                {isMultiArtist ? 'Band Member Origins' : 'Artist Geography'}
+              </h3>
+              <p className="text-xs text-gray-500">
+                {locations.length} location{locations.length !== 1 ? 's' : ''} • Scroll to zoom
+              </p>
+            </div>
+
+            {/* Map content - full size with scroll zoom enabled */}
+            <div className="w-full h-full">
+              <MapContent
+                key={`modal-${mapKey}`}
+                locations={locations}
+                showTravelPath={shouldShowPath}
+                enableScrollZoom={true}
+              />
+            </div>
+
+            {/* Legend in modal */}
+            <MapLegend isMultiArtist={isMultiArtist} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
