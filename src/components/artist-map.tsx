@@ -59,6 +59,7 @@ interface ArtistMapProps {
   className?: string;
   showTravelPath?: boolean;        // Whether to show travel path (default: true for single, false for multi)
   highlightedArtistName?: string | null;  // Artist name to highlight on map (for hover sync)
+  onHoverArtist?: (artistName: string | null) => void;  // Callback when hovering over a marker
 }
 
 // Marker colors by type
@@ -214,9 +215,10 @@ interface MapContentProps {
   showTravelPath: boolean;
   enableScrollZoom?: boolean;
   highlightedArtistName?: string | null;
+  onHoverArtist?: (artistName: string | null) => void;
 }
 
-function MapContent({ locations, showTravelPath, enableScrollZoom = false, highlightedArtistName }: MapContentProps) {
+function MapContent({ locations, showTravelPath, enableScrollZoom = false, highlightedArtistName, onHoverArtist }: MapContentProps) {
   const bounds = useMemo(() => calculateBounds(locations), [locations]);
 
   // Create polyline path through locations in order (only for single artist)
@@ -279,6 +281,18 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false, highl
             key={`${location.artistName || 'artist'}-${location.type}-${index}-${highlightedArtistName === location.artistName ? 'hl' : ''}`}
             position={[location.place.coordinates.latitude, location.place.coordinates.longitude]}
             icon={icon}
+            eventHandlers={{
+              mouseover: () => {
+                if (onHoverArtist && location.artistName) {
+                  onHoverArtist(location.artistName);
+                }
+              },
+              mouseout: () => {
+                if (onHoverArtist) {
+                  onHoverArtist(null);
+                }
+              },
+            }}
           >
             <Popup>
               {location.artistName && (
@@ -296,7 +310,7 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false, highl
   );
 }
 
-export function ArtistMap({ bio, bios, className = '', showTravelPath, highlightedArtistName }: ArtistMapProps) {
+export function ArtistMap({ bio, bios, className = '', showTravelPath, highlightedArtistName, onHoverArtist }: ArtistMapProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Determine if this is multi-artist mode
@@ -381,7 +395,7 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath, highlight
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossOrigin=""
         />
-        <MapContent locations={locations} showTravelPath={shouldShowPath} highlightedArtistName={highlightedArtistName} />
+        <MapContent locations={locations} showTravelPath={shouldShowPath} highlightedArtistName={highlightedArtistName} onHoverArtist={onHoverArtist} />
         <MapLegend isMultiArtist={isMultiArtist} />
         {/* Hint for double-click */}
         <div className="absolute top-1 right-1 z-[1000] bg-white/80 rounded px-1.5 py-0.5 text-[10px] text-gray-500 pointer-events-none">
