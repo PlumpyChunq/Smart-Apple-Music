@@ -95,6 +95,13 @@ export function SidebarSections({
     shouldFetchMemberBios
   );
 
+  // Look up hovered artist name for map marker highlighting
+  const hoveredArtistName = useMemo(() => {
+    if (!hoveredArtistId) return null;
+    const hoveredArtist = relatedArtists.find(a => a.id === hoveredArtistId);
+    return hoveredArtist?.name || null;
+  }, [hoveredArtistId, relatedArtists]);
+
   // Normalize album name for matching - strip special chars and extra whitespace
   const normalizeForMatch = useCallback((name: string): string => {
     return name
@@ -402,7 +409,7 @@ export function SidebarSections({
       ) : isMemberBiosLoading ? (
         <div className="text-xs text-gray-400 py-2">Loading member locations...</div>
       ) : (
-        <ArtistMap bios={memberBios} />
+        <ArtistMap bios={memberBios} highlightedArtistName={hoveredArtistName} />
       ),
     });
   }

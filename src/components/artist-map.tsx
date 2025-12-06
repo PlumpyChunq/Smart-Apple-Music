@@ -58,6 +58,7 @@ interface ArtistMapProps {
   bios?: WikidataArtistBio[];      // Multiple artist bios (for band view)
   className?: string;
   showTravelPath?: boolean;        // Whether to show travel path (default: true for single, false for multi)
+  highlightedArtistName?: string | null;  // Artist name to highlight on map (for hover sync)
 }
 
 // Marker colors by type
@@ -70,27 +71,32 @@ const MARKER_COLORS: Record<MapLocationType, string> = {
 /**
  * Create a colored marker icon for Leaflet
  */
-function createMarkerIcon(color: string) {
+function createMarkerIcon(color: string, highlighted: boolean = false) {
   if (typeof window === 'undefined') return null;
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const L = require('leaflet');
 
+  const size = highlighted ? 32 : 24;
+  const borderWidth = highlighted ? 4 : 2;
+  const borderColor = highlighted ? '#f97316' : 'white'; // Orange border when highlighted
+
   return L.divIcon({
     className: 'custom-map-marker',
     html: `
       <div style="
-        width: 24px;
-        height: 24px;
+        width: ${size}px;
+        height: ${size}px;
         background-color: ${color};
-        border: 2px solid white;
+        border: ${borderWidth}px solid ${borderColor};
         border-radius: 50%;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        box-shadow: ${highlighted ? '0 0 12px rgba(249, 115, 22, 0.6)' : '0 2px 4px rgba(0,0,0,0.3)'};
+        transition: all 0.15s ease-out;
       "></div>
     `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
   });
 }
 
@@ -207,9 +213,10 @@ interface MapContentProps {
   locations: MapLocation[];
   showTravelPath: boolean;
   enableScrollZoom?: boolean;
+  highlightedArtistName?: string | null;
 }
 
-function MapContent({ locations, showTravelPath, enableScrollZoom = false }: MapContentProps) {
+function MapContent({ locations, showTravelPath, enableScrollZoom = false, highlightedArtistName }: MapContentProps) {
   const bounds = useMemo(() => calculateBounds(locations), [locations]);
 
   // Create polyline path through locations in order (only for single artist)
@@ -220,15 +227,13 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false }: Map
       .map((loc) => [loc.place.coordinates!.latitude, loc.place.coordinates!.longitude] as [number, number]);
   }, [locations, showTravelPath]);
 
-  // Create marker icons for each type
-  const icons = useMemo(() => {
-    if (typeof window === 'undefined') return {};
-    return {
-      birth: createMarkerIcon(MARKER_COLORS.birth),
-      death: createMarkerIcon(MARKER_COLORS.death),
-      residence: createMarkerIcon(MARKER_COLORS.residence),
-    };
-  }, []);
+  // Create marker icons for each type and highlight state
+  // We need to create icons dynamically based on highlight state
+  const getIcon = useCallback((type: MapLocationType, artistName?: string) => {
+    if (typeof window === 'undefined') return null;
+    const isHighlighted = !!(highlightedArtistName && artistName && artistName === highlightedArtistName);
+    return createMarkerIcon(MARKER_COLORS[type], isHighlighted);
+  }, [highlightedArtistName]);
 
   if (!bounds) return null;
 
@@ -267,11 +272,11 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false }: Map
       {/* Render markers */}
       {locations.map((location, index) => {
         if (!location.place.coordinates) return null;
-        const icon = icons[location.type];
+        const icon = getIcon(location.type, location.artistName);
 
         return (
           <Marker
-            key={`${location.artistName || 'artist'}-${location.type}-${index}`}
+            key={`${location.artistName || 'artist'}-${location.type}-${index}-${highlightedArtistName === location.artistName ? 'hl' : ''}`}
             position={[location.place.coordinates.latitude, location.place.coordinates.longitude]}
             icon={icon}
           >
@@ -291,7 +296,7 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false }: Map
   );
 }
 
-export function ArtistMap({ bio, bios, className = '', showTravelPath }: ArtistMapProps) {
+export function ArtistMap({ bio, bios, className = '', showTravelPath, highlightedArtistName }: ArtistMapProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Determine if this is multi-artist mode
@@ -376,7 +381,7 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath }: ArtistM
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossOrigin=""
         />
-        <MapContent locations={locations} showTravelPath={shouldShowPath} />
+        <MapContent locations={locations} showTravelPath={shouldShowPath} highlightedArtistName={highlightedArtistName} />
         <MapLegend isMultiArtist={isMultiArtist} />
         {/* Hint for double-click */}
         <div className="absolute top-1 right-1 z-[1000] bg-white/80 rounded px-1.5 py-0.5 text-[10px] text-gray-500 pointer-events-none">
