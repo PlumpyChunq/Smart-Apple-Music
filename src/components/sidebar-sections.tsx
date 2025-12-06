@@ -109,11 +109,24 @@ export function SidebarSections({
       return;
     }
     // Find artist by name and call onHoverArtist with their ID
-    const artist = relatedArtists.find(a => a.name === artistName);
-    if (artist) {
-      onHoverArtist(artist.id);
+    const foundArtist = relatedArtists.find(a => a.name === artistName);
+    if (foundArtist) {
+      onHoverArtist(foundArtist.id);
     }
   }, [relatedArtists, onHoverArtist]);
+
+  // Build band info for map modal
+  const bandInfo = useMemo(() => {
+    if (artist.type !== 'group') return undefined;
+    return {
+      name: artist.name,
+      formedYear: artist.activeYears?.begin,
+      albumCount: displayArtist.albums?.length,
+      memberCount: memberBios.length,
+      // Generate Wikipedia search URL for band
+      wikipediaUrl: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(artist.name + ' band')}`,
+    };
+  }, [artist, displayArtist.albums, memberBios.length]);
 
   // Normalize album name for matching - strip special chars and extra whitespace
   const normalizeForMatch = useCallback((name: string): string => {
@@ -422,7 +435,7 @@ export function SidebarSections({
       ) : isMemberBiosLoading ? (
         <div className="text-xs text-gray-400 py-2">Loading member locations...</div>
       ) : (
-        <ArtistMap bios={memberBios} highlightedArtistName={hoveredArtistName} onHoverArtist={handleMapHover} />
+        <ArtistMap bios={memberBios} highlightedArtistName={hoveredArtistName} onHoverArtist={handleMapHover} bandInfo={bandInfo} />
       ),
     });
   }

@@ -1,8 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo, useEffect, useCallback, useState } from 'react';
+import { useMemo, useEffect, useCallback, useState, useRef } from 'react';
 import type { WikidataArtistBio, WikidataPlace } from '@/lib/wikidata';
+import type { Marker as LeafletMarker } from 'leaflet';
 
 // Dynamically import the map component to avoid SSR issues
 const MapContainer = dynamic(
@@ -51,6 +52,18 @@ export interface MapLocation {
   place: WikidataPlace;
   label: string;
   artistName?: string;  // For multi-artist maps
+  birthDate?: string;   // For richer popup info
+  deathDate?: string;
+  wikipediaUrl?: string;
+  description?: string;
+}
+
+interface BandInfo {
+  name: string;
+  formedYear?: string;
+  albumCount?: number;
+  memberCount?: number;
+  wikipediaUrl?: string;
 }
 
 interface ArtistMapProps {
@@ -60,6 +73,7 @@ interface ArtistMapProps {
   showTravelPath?: boolean;        // Whether to show travel path (default: true for single, false for multi)
   highlightedArtistName?: string | null;  // Artist name to highlight on map (for hover sync)
   onHoverArtist?: (artistName: string | null) => void;  // Callback when hovering over a marker
+  bandInfo?: BandInfo;             // Band info for modal panel (multi-artist mode)
 }
 
 // Marker colors by type
@@ -107,13 +121,21 @@ function createMarkerIcon(color: string, highlighted: boolean = false) {
 function extractLocationsFromBio(bio: WikidataArtistBio, includeArtistName: boolean = false): MapLocation[] {
   const locations: MapLocation[] = [];
   const artistName = includeArtistName ? bio.name : undefined;
+  // Common fields for all locations from this artist
+  const commonFields = {
+    artistName,
+    birthDate: bio.birthDate,
+    deathDate: bio.deathDate,
+    wikipediaUrl: bio.wikipediaUrl,
+    description: bio.description,
+  };
 
   if (bio.birthPlace?.coordinates) {
     locations.push({
       type: 'birth',
       place: bio.birthPlace,
       label: `Born: ${bio.birthPlace.name}${bio.birthDate ? ` (${bio.birthDate.split('-')[0]})` : ''}`,
-      artistName,
+      ...commonFields,
     });
   }
 
@@ -124,7 +146,7 @@ function extractLocationsFromBio(bio: WikidataArtistBio, includeArtistName: bool
         type: 'residence',
         place: residence,
         label: `Lived in: ${residence.name}`,
-        artistName,
+        ...commonFields,
       });
     }
   });
@@ -134,7 +156,7 @@ function extractLocationsFromBio(bio: WikidataArtistBio, includeArtistName: bool
       type: 'death',
       place: bio.deathPlace,
       label: `Died: ${bio.deathPlace.name}${bio.deathDate ? ` (${bio.deathDate.split('-')[0]})` : ''}`,
-      artistName,
+      ...commonFields,
     });
   }
 
@@ -216,10 +238,32 @@ interface MapContentProps {
   enableScrollZoom?: boolean;
   highlightedArtistName?: string | null;
   onHoverArtist?: (artistName: string | null) => void;
+  isModal?: boolean;  // Enhanced popup behavior for modal view
 }
 
-function MapContent({ locations, showTravelPath, enableScrollZoom = false, highlightedArtistName, onHoverArtist }: MapContentProps) {
+/**
+ * Calculate age from birth/death dates
+ */
+function calculateAge(birthDate?: string, deathDate?: string): string | null {
+  if (!birthDate) return null;
+  const birth = new Date(birthDate);
+  const end = deathDate ? new Date(deathDate) : new Date();
+  const age = Math.floor((end.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+  return age > 0 ? `${age}` : null;
+}
+
+/**
+ * Format date for display
+ */
+function formatDate(dateStr?: string): string | null {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function MapContent({ locations, showTravelPath, enableScrollZoom = false, highlightedArtistName, onHoverArtist, isModal = false }: MapContentProps) {
   const bounds = useMemo(() => calculateBounds(locations), [locations]);
+  const markerRefs = useRef<Map<string, LeafletMarker>>(new Map());
 
   // Create polyline path through locations in order (only for single artist)
   const pathCoordinates = useMemo(() => {
@@ -275,32 +319,89 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false, highl
       {locations.map((location, index) => {
         if (!location.place.coordinates) return null;
         const icon = getIcon(location.type, location.artistName);
+        const markerId = `${location.artistName || 'artist'}-${location.type}-${index}`;
+        const age = calculateAge(location.birthDate, location.deathDate);
 
         return (
           <Marker
-            key={`${location.artistName || 'artist'}-${location.type}-${index}-${highlightedArtistName === location.artistName ? 'hl' : ''}`}
+            key={`${markerId}-${highlightedArtistName === location.artistName ? 'hl' : ''}`}
             position={[location.place.coordinates.latitude, location.place.coordinates.longitude]}
             icon={icon}
+            ref={(ref) => {
+              if (ref) markerRefs.current.set(markerId, ref);
+            }}
             eventHandlers={{
-              mouseover: () => {
+              mouseover: (e) => {
                 if (onHoverArtist && location.artistName) {
                   onHoverArtist(location.artistName);
                 }
+                // Auto-open popup on hover in modal mode
+                if (isModal) {
+                  e.target.openPopup();
+                }
               },
-              mouseout: () => {
+              mouseout: (e) => {
                 if (onHoverArtist) {
                   onHoverArtist(null);
+                }
+                // Auto-close popup on mouse out in modal mode
+                if (isModal) {
+                  e.target.closePopup();
                 }
               },
             }}
           >
             <Popup>
+              {/* Artist name */}
               {location.artistName && (
-                <div className="text-sm font-bold text-blue-600">{location.artistName}</div>
+                <div className="text-base font-bold text-blue-600 mb-1">{location.artistName}</div>
               )}
+
+              {/* Location info */}
               <div className="text-sm font-medium">{location.label}</div>
               {location.place.country && (
-                <div className="text-xs text-gray-500">{location.place.country}</div>
+                <div className="text-xs text-gray-500 mb-2">{location.place.country}</div>
+              )}
+
+              {/* Enhanced info for modal view */}
+              {isModal && (
+                <div className="border-t pt-2 mt-2 space-y-1">
+                  {/* Birth/Death dates */}
+                  {location.birthDate && (
+                    <div className="text-xs text-gray-600">
+                      <span className="font-medium">Born:</span> {formatDate(location.birthDate)}
+                    </div>
+                  )}
+                  {location.deathDate && (
+                    <div className="text-xs text-gray-600">
+                      <span className="font-medium">Died:</span> {formatDate(location.deathDate)}
+                      {age && ` (age ${age})`}
+                    </div>
+                  )}
+                  {!location.deathDate && age && (
+                    <div className="text-xs text-gray-600">
+                      <span className="font-medium">Age:</span> {age}
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {location.description && (
+                    <div className="text-xs text-gray-500 italic mt-1">{location.description}</div>
+                  )}
+
+                  {/* Wikipedia link */}
+                  {location.wikipediaUrl && (
+                    <a
+                      href={location.wikipediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-500 hover:text-blue-700 hover:underline block mt-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View on Wikipedia →
+                    </a>
+                  )}
+                </div>
               )}
             </Popup>
           </Marker>
@@ -310,7 +411,7 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false, highl
   );
 }
 
-export function ArtistMap({ bio, bios, className = '', showTravelPath, highlightedArtistName, onHoverArtist }: ArtistMapProps) {
+export function ArtistMap({ bio, bios, className = '', showTravelPath, highlightedArtistName, onHoverArtist, bandInfo }: ArtistMapProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Determine if this is multi-artist mode
@@ -441,11 +542,65 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath, highlight
                 locations={locations}
                 showTravelPath={shouldShowPath}
                 enableScrollZoom={true}
+                isModal={true}
               />
             </div>
 
             {/* Legend in modal */}
             <MapLegend isMultiArtist={isMultiArtist} />
+
+            {/* Band info panel (bottom right) */}
+            {isMultiArtist && bandInfo && (
+              <div className="absolute bottom-3 right-3 z-[10001] bg-white/95 rounded-lg px-4 py-3 shadow-lg max-w-xs">
+                <h4 className="font-bold text-gray-800 mb-2">{bandInfo.name}</h4>
+                <div className="space-y-1 text-sm text-gray-600">
+                  {bandInfo.formedYear && (
+                    <div>
+                      <span className="font-medium">Formed:</span> {bandInfo.formedYear}
+                    </div>
+                  )}
+                  {bandInfo.memberCount && (
+                    <div>
+                      <span className="font-medium">Members shown:</span> {bandInfo.memberCount}
+                    </div>
+                  )}
+                  {bandInfo.albumCount && (
+                    <div>
+                      <span className="font-medium">Albums:</span> {bandInfo.albumCount}
+                    </div>
+                  )}
+                </div>
+                {bandInfo.wikipediaUrl && (
+                  <a
+                    href={bandInfo.wikipediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-500 hover:text-blue-700 hover:underline block mt-2"
+                  >
+                    View band on Wikipedia →
+                  </a>
+                )}
+
+                {/* Member list */}
+                {bios && bios.length > 0 && (
+                  <div className="mt-3 pt-2 border-t">
+                    <div className="text-xs font-medium text-gray-500 mb-1">Band Members:</div>
+                    <div className="space-y-0.5">
+                      {bios.map((memberBio) => (
+                        <div key={memberBio.wikidataId} className="text-xs text-gray-600 flex items-center gap-1">
+                          <span>{memberBio.name}</span>
+                          {memberBio.birthDate && (
+                            <span className="text-gray-400">
+                              ({memberBio.birthDate.split('-')[0]}–{memberBio.deathDate ? memberBio.deathDate.split('-')[0] : 'present'})
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
