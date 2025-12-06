@@ -283,6 +283,16 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath }: ArtistM
   // Default showTravelPath: true for single artist, false for multi
   const shouldShowPath = showTravelPath ?? !isMultiArtist;
 
+  // Generate a stable key for the map based on location data
+  // This helps React properly handle map remounting during drag-and-drop
+  const mapKey = useMemo(() => {
+    const locationIds = locations
+      .map(l => `${l.artistName || ''}-${l.type}-${l.place.id}`)
+      .sort()
+      .join('|');
+    return `map-${locationIds}`;
+  }, [locations]);
+
   // Don't render if no locations with coordinates
   if (locations.length === 0) {
     return (
@@ -293,7 +303,7 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath }: ArtistM
   }
 
   return (
-    <div className={`relative ${className}`} style={{ height: '200px' }}>
+    <div className={`relative ${className}`} style={{ height: '200px' }} key={mapKey}>
       <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"

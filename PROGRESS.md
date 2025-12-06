@@ -146,6 +146,19 @@ Leverage ALL MusicBrainz relationship types for richer discovery:
 - [ ] Fuzzy matching for venue names and locations
 - [ ] Date range parsing: "last summer", "in the 90s", "2015"
 
+#### AI-Powered Features (NEW)
+- [ ] Intelligent search with LLM parsing for complex queries
+- [ ] AI playlist generation based on:
+  - [ ] Mood/vibe descriptions ("chill summer evening")
+  - [ ] Activity context ("workout music", "road trip")
+  - [ ] Artist similarity ("sounds like Radiohead but more upbeat")
+  - [ ] Era/decade preferences ("90s alternative deep cuts")
+  - [ ] Relationship-based discovery ("artists who influenced Nirvana")
+- [ ] Smart recommendations using graph connections + listening patterns
+- [ ] Natural language concert search ("shows I might like this weekend")
+- [ ] AI-generated artist summaries combining Wikipedia, MusicBrainz, and graph data
+- [ ] Conversational interface for music exploration
+
 ---
 
 ## Upcoming

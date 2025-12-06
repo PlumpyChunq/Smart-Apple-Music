@@ -375,19 +375,31 @@ export function SidebarSections({
   // Add map section
   // - For a person (main or selected): show their single bio map
   // - For a band with no person selected: show aggregated member locations
+  // Note: Map content is rendered dynamically based on drag state to avoid Leaflet DOM issues
   if (bioTarget && artistBio) {
     // Single person map
     allSections.push({
       id: 'map',
       title: selectedPerson ? `${selectedPerson.name} - Geography` : 'Geography',
-      content: <ArtistMap bio={artistBio} />,
+      // Render placeholder during drag to avoid Leaflet DOM reparenting issues
+      content: draggingIndex !== null ? (
+        <div className="h-[200px] bg-gray-100 rounded flex items-center justify-center text-gray-400 text-sm">
+          Map paused during reorder
+        </div>
+      ) : (
+        <ArtistMap bio={artistBio} />
+      ),
     });
   } else if (artist.type === 'group' && !selectedPerson && memberBios.length > 0) {
     // Band map showing all member locations
     allSections.push({
       id: 'map',
       title: 'Member Origins',
-      content: isMemberBiosLoading ? (
+      content: draggingIndex !== null ? (
+        <div className="h-[200px] bg-gray-100 rounded flex items-center justify-center text-gray-400 text-sm">
+          Map paused during reorder
+        </div>
+      ) : isMemberBiosLoading ? (
         <div className="text-xs text-gray-400 py-2">Loading member locations...</div>
       ) : (
         <ArtistMap bios={memberBios} />
