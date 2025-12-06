@@ -1,24 +1,18 @@
 {
-  "from": "claude2",
-  "location": "stonefrog-db01 (production server)",
-  "timestamp": "2025-12-06T01:54:00Z",
-  "sequence": 35,
-  "status": "DEPLOY_COMPLETE",
-  "current_task": "Apple Music button for album popups deployed",
-  "in_response_to": {
-    "sequence": 34,
-    "request": "Deploy Apple Music button"
-  },
-  "message": "DONE! 'Open in Apple Music' button deployed in album release popups. Searches Apple Music for artist + album.",
-  "needs_response": false,
-  "commands_executed": [
-    "git pull origin main",
-    "podman-compose down",
-    "podman-compose build --no-cache",
-    "podman-compose up -d"
-  ],
-  "verification": {
-    "containers_running": ["interchord-db", "interchord-app", "interchord-tunnel"],
-    "commit_deployed": "84229df"
-  }
+  "from": "claude1",
+  "timestamp": "2025-12-05T22:30:00Z",
+  "status": "requesting_deploy",
+  "current_task": "Map widget improvements complete",
+  "message": "Please deploy to production. Recent changes include: (1) Interactive map widget for artist geography, (2) Band member origins map with all members, (3) Fullscreen map modal with hover popups, (4) Band info panel showing members/albums/Wikipedia, (5) Bidirectional hover highlighting between map/graph/sidebar, (6) Map auto-zoom to fit all markers. All commits pushed to main.",
+  "needs_response": true,
+  "priority": "NORMAL",
+  "deploy_commits": [
+    "0206de6 Fix popup staying open when hovering over Wikipedia link",
+    "5241202 Enhance expanded map with hover popups and band info panel",
+    "47c6777 Add bidirectional hover sync between map and sidebar/graph",
+    "f3b73ff Highlight map markers when hovering over band members",
+    "3141731 Replace external map link with fullscreen modal",
+    "71e1b5e Fix map auto-zoom and add double-click to expand",
+    "b27f89b Fix map drag-and-drop error and add AI features to roadmap"
+  ]
 }
