@@ -361,6 +361,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                   hoveredArtistId={hoveredArtistId}
                   timelineEvents={timelineEvents}
                   highlightedAlbum={highlightedAlbum}
+                  relatedArtists={data.relatedArtists}
                   onSidebarNodeSelect={handleSidebarNodeSelect}
                   onSidebarNodeNavigate={handleSidebarNodeNavigate}
                   onHoverArtist={setHoveredArtistId}

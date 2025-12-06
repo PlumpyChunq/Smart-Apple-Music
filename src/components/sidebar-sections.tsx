@@ -39,6 +39,7 @@ interface SidebarSectionsProps {
   hoveredArtistId: string | null;
   timelineEvents?: TimelineEvent[];
   highlightedAlbum?: { name: string; year: number; source?: 'timeline' | 'sidebar' } | null;
+  relatedArtists?: ArtistNode[];  // All related artists for looking up selected person
   onSidebarNodeSelect: (artist: ArtistNode) => void;
   onSidebarNodeNavigate: (artist: ArtistNode) => void;
   onHoverArtist: (artistId: string | null) => void;
@@ -56,6 +57,7 @@ export function SidebarSections({
   hoveredArtistId,
   timelineEvents = [],
   highlightedAlbum,
+  relatedArtists = [],
   onSidebarNodeSelect,
   onSidebarNodeNavigate,
   onHoverArtist,
@@ -67,11 +69,16 @@ export function SidebarSections({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const { serviceInfo: streamingService } = useStreamingPreference();
 
-  // Fetch artist bio for map (only for person artists)
-  const { data: artistBio } = useArtistBio(
-    artist.type === 'person' ? artist.id : undefined,
-    artist.type === 'person'
-  );
+  // Find selected artist if it's a person (for showing their bio/map)
+  const selectedPerson = useMemo(() => {
+    if (!selectedNodeId || selectedNodeId === artist.id) return null;
+    const found = relatedArtists.find(a => a.id === selectedNodeId);
+    return found?.type === 'person' ? found : null;
+  }, [selectedNodeId, artist.id, relatedArtists]);
+
+  // Fetch artist bio for map (for main artist if person, or selected person)
+  const bioTargetId = selectedPerson?.id || (artist.type === 'person' ? artist.id : undefined);
+  const { data: artistBio } = useArtistBio(bioTargetId, !!bioTargetId);
 
   // Normalize album name for matching - strip special chars and extra whitespace
   const normalizeForMatch = useCallback((name: string): string => {
@@ -338,20 +345,23 @@ export function SidebarSections({
   type SectionData = { id: SectionId; title: string; count?: number; content: React.ReactNode };
   const allSections: SectionData[] = [];
 
-  // Add biography section (only for person artists, not groups)
-  if (artist.type === 'person') {
+  // Determine which person to show bio/map for: selected person or main artist (if person)
+  const bioTarget = selectedPerson || (artist.type === 'person' ? artist : null);
+
+  // Add biography section (for selected person or main artist if person)
+  if (bioTarget) {
     allSections.push({
       id: 'biography',
-      title: 'Biography',
-      content: <ArtistBiography mbid={artist.id} artistName={artist.name} />,
+      title: selectedPerson ? `${selectedPerson.name} - Biography` : 'Biography',
+      content: <ArtistBiography mbid={bioTarget.id} artistName={bioTarget.name} />,
     });
   }
 
-  // Add map section (only for person artists with bio data)
-  if (artist.type === 'person' && artistBio) {
+  // Add map section (for selected person or main artist if person, with bio data)
+  if (bioTarget && artistBio) {
     allSections.push({
       id: 'map',
-      title: 'Geography',
+      title: selectedPerson ? `${selectedPerson.name} - Geography` : 'Geography',
       content: <ArtistMap bio={artistBio} />,
     });
   }
