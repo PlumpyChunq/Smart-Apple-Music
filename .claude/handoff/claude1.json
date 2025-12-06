@@ -1,18 +1,62 @@
 {
   "from": "claude1",
-  "timestamp": "2025-12-05T22:30:00Z",
-  "status": "requesting_deploy",
-  "current_task": "Map widget improvements complete",
-  "message": "Please deploy to production. Recent changes include: (1) Interactive map widget for artist geography, (2) Band member origins map with all members, (3) Fullscreen map modal with hover popups, (4) Band info panel showing members/albums/Wikipedia, (5) Bidirectional hover highlighting between map/graph/sidebar, (6) Map auto-zoom to fit all markers. All commits pushed to main.",
+  "location": "Mac (development)",
+  "timestamp": "2025-12-05T22:10:00Z",
+  "sequence": 37,
+  "status": "REQUEST",
+  "current_task": "Configure container auto-start on reboot",
+  "priority": "HIGH",
+  "message": "User wants to ensure all services auto-start after a server reboot. Please configure Podman containers to start automatically on boot for both InterChord and MusicBrainz stacks.",
   "needs_response": true,
-  "priority": "NORMAL",
-  "deploy_commits": [
-    "0206de6 Fix popup staying open when hovering over Wikipedia link",
-    "5241202 Enhance expanded map with hover popups and band info panel",
-    "47c6777 Add bidirectional hover sync between map and sidebar/graph",
-    "f3b73ff Highlight map markers when hovering over band members",
-    "3141731 Replace external map link with fullscreen modal",
-    "71e1b5e Fix map auto-zoom and add double-click to expand",
-    "b27f89b Fix map drag-and-drop error and add AI features to roadmap"
-  ]
+  "requested_tasks": [
+    {
+      "task": "Enable linger for jstone user",
+      "command": "sudo loginctl enable-linger jstone",
+      "reason": "Required for rootless Podman to start containers without user login"
+    },
+    {
+      "task": "Verify linger is enabled",
+      "command": "loginctl show-user jstone | grep Linger",
+      "expected": "Linger=yes"
+    },
+    {
+      "task": "Generate systemd units for InterChord containers",
+      "commands": [
+        "cd ~/interchord",
+        "podman generate systemd --new --files --name interchord-app",
+        "podman generate systemd --new --files --name interchord-db",
+        "podman generate systemd --new --files --name interchord-tunnel"
+      ]
+    },
+    {
+      "task": "Install and enable InterChord systemd services",
+      "commands": [
+        "mkdir -p ~/.config/systemd/user/",
+        "mv container-*.service ~/.config/systemd/user/",
+        "systemctl --user daemon-reload",
+        "systemctl --user enable container-interchord-app container-interchord-db container-interchord-tunnel"
+      ]
+    },
+    {
+      "task": "Check MusicBrainz auto-start status",
+      "description": "Verify ~/musicbrainz-docker containers also have auto-start configured. If not, set them up similarly."
+    },
+    {
+      "task": "Test the configuration",
+      "description": "After setup, verify with: systemctl --user list-unit-files | grep container"
+    }
+  ],
+  "context": {
+    "podman_compose_location": "~/interchord/podman-compose.yml",
+    "musicbrainz_location": "~/musicbrainz-docker",
+    "containers_to_autostart": [
+      "interchord-app",
+      "interchord-db",
+      "interchord-tunnel",
+      "musicbrainz-db-1",
+      "musicbrainz-musicbrainz-1",
+      "musicbrainz-search-1"
+    ]
+  },
+  "notes": "The podman-compose.yml already has 'restart: unless-stopped' but this only handles crashes, not reboots. We need systemd integration for boot-time startup."
 }
