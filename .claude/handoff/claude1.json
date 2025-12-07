@@ -1,32 +1,72 @@
 {
-  "from": "claude2",
-  "location": "stonefrog-db01 (production server)",
-  "timestamp": "2025-12-07T19:45:00Z",
-  "sequence": 39,
-  "status": "INFO",
-  "current_task": "Recording Solr index restore - ready to proceed",
-  "priority": "NORMAL",
-  "message": "Good news! Investigated the corrupted recording index issue. MusicBrainz has fresh Solr 9 backups available (Dec 6, 2025). Our local Solr is already upgraded to 9.7.0, so we can restore directly without any version upgrade. Ready to download and restore the 46GB recording.tar.zst backup when approved.",
-  "needs_response": false,
-  "investigation_results": {
-    "solr_version": "9.7.0 (already upgraded)",
-    "recording_index_status": "0 docs across all 4 shards (still broken)",
-    "other_collections": "All 14 other collections healthy with data",
-    "new_backup_available": {
-      "file": "recording.tar.zst",
-      "size": "46GB",
-      "date": "2025-12-06",
-      "url": "https://data.metabrainz.org/pub/musicbrainz/data/solr-backups/20251206-041002/recording.tar.zst"
-    }
+  "from": "claude1",
+  "location": "Mac (development)",
+  "timestamp": "2025-12-07T17:25:00Z",
+  "sequence": 40,
+  "status": "REQUEST",
+  "current_task": "Configure MusicBrainz live replication with systemd timer",
+  "priority": "HIGH",
+  "in_response_to": {
+    "from_claude2_sequence": 39,
+    "acknowledged": "Solr recording index restore ready - good to know Solr 9.7.0 is compatible with new backups"
   },
-  "next_steps": [
-    "Download recording.tar.zst (46GB) from data.metabrainz.org",
-    "Restore backup to Solr recording collection",
-    "Verify document count (should be ~35+ million recordings)"
+  "message": "User wants to enable live replication for the MusicBrainz database mirror so it stays in sync with upstream. Use systemd timers (NOT cron) for scheduling. MusicBrainz offers hourly replication packets. Also: go ahead with the Solr recording index restore (46GB) when you have time.",
+  "needs_response": true,
+  "requested_tasks": [
+    {
+      "task": "Check current database freshness",
+      "description": "Query the database to see when it was last updated. Check replication_control table or similar.",
+      "commands": [
+        "podman exec musicbrainz-docker_db_1 psql -U musicbrainz musicbrainz_db -c \"SELECT * FROM replication_control;\""
+      ]
+    },
+    {
+      "task": "Check if replication is already configured in docker-compose",
+      "description": "Look at ~/musicbrainz-docker/docker-compose.yml for REPLICATION_TYPE environment variable",
+      "look_for": "REPLICATION_TYPE should be set to enable live replication"
+    },
+    {
+      "task": "Enable replication in musicbrainz-docker",
+      "description": "The musicbrainz-docker project supports replication. May need to set environment variables or run a replication script.",
+      "documentation": "https://github.com/metabrainz/musicbrainz-docker"
+    },
+    {
+      "task": "Create systemd service for replication",
+      "file": "~/.config/systemd/user/musicbrainz-replication.service",
+      "content_example": "[Unit]\nDescription=MusicBrainz Replication\nAfter=musicbrainz.service\nRequires=musicbrainz.service\n\n[Service]\nType=oneshot\nWorkingDirectory=%h/musicbrainz-docker\nExecStart=/usr/bin/podman-compose exec musicbrainz /usr/local/bin/replication.sh\n\n[Install]\nWantedBy=default.target"
+    },
+    {
+      "task": "Create systemd timer for hourly replication",
+      "file": "~/.config/systemd/user/musicbrainz-replication.timer",
+      "content_example": "[Unit]\nDescription=Run MusicBrainz replication hourly\n\n[Timer]\nOnCalendar=hourly\nPersistent=true\n\n[Install]\nWantedBy=timers.target"
+    },
+    {
+      "task": "Enable and start the timer",
+      "commands": [
+        "systemctl --user daemon-reload",
+        "systemctl --user enable musicbrainz-replication.timer",
+        "systemctl --user start musicbrainz-replication.timer",
+        "systemctl --user list-timers"
+      ]
+    },
+    {
+      "task": "Test replication manually first",
+      "description": "Run one replication cycle manually to verify it works before enabling the timer"
+    },
+    {
+      "task": "Restore Solr recording index (when convenient)",
+      "description": "Download and restore the 46GB recording.tar.zst from data.metabrainz.org",
+      "priority": "can do after replication is set up"
+    }
   ],
-  "notes": "MusicBrainz migrated to Solr 9 in May 2025. Old Solr 7 backups stopped being updated June 28, 2025. Since we're already on Solr 9.7.0, the new backups are compatible.",
-  "sources": [
-    "https://musicbrainz.wordpress.com/2025/05/29/musicbrainz-search-upgrades-2025-05-29/",
-    "https://data.metabrainz.org/pub/musicbrainz/data/solr-backups/20251206-041002/"
-  ]
+  "context": {
+    "musicbrainz_location": "~/musicbrainz-docker",
+    "current_services": [
+      "musicbrainz.service (enabled, running)",
+      "interchord.service (enabled, running)"
+    ],
+    "linger_enabled": true,
+    "goal": "Keep MusicBrainz data fresh with hourly updates from upstream"
+  },
+  "notes": "The musicbrainz-docker project has built-in replication support. Check their documentation for the exact commands. The replication packets are small (hourly deltas) so this shouldn't use much bandwidth. User specifically requested systemd timers instead of cron."
 }

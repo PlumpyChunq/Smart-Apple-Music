@@ -10,8 +10,23 @@ interface AppleMusicAuthProps {
   onImportComplete?: () => void;
 }
 
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
 export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
-  const { isAuthorized, isLoading, error, connect, disconnect } = useAppleMusicAuth();
+  const { isAuthorized, isLoading, isCheckingAuth, error, connect, disconnect } = useAppleMusicAuth();
   const [importStatus, setImportStatus] = useState(importManager.getStatus());
 
   // Subscribe to import manager status updates
@@ -28,9 +43,14 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
 
   // Trigger import after authorization (uses singleton, survives unmount)
   useEffect(() => {
-    if (isAuthorized && !importManager.isImportComplete() && !importManager.isImporting()) {
-      // No callbacks needed - import manager writes directly to localStorage
-      importManager.startImport();
+    if (isAuthorized) {
+      if (!importManager.isImportComplete() && !importManager.isImporting()) {
+        // First time import - full sync
+        importManager.startImport();
+      } else if (importManager.shouldBackgroundCheck()) {
+        // Already imported - do background diff check for new artists
+        importManager.backgroundSync();
+      }
     }
   }, [isAuthorized]);
 
@@ -48,16 +68,20 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
     importManager.startImport();
   };
 
+  // Show loading only during user-initiated actions (connect/disconnect)
+  // Background auth check (isCheckingAuth) doesn't block the UI
   if (isLoading) {
     return (
       <Button variant="outline" disabled>
         <Loader2 className="animate-spin" />
-        Loading...
+        Connecting...
       </Button>
     );
   }
 
   if (isAuthorized) {
+    const lastImport = importManager.getLastImportInfo();
+
     return (
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 flex-wrap">
@@ -81,7 +105,7 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
             Re-import
           </Button>
         </div>
-        {(importStatus.isImporting || importStatus.message) && (
+        {importStatus.isImporting || importStatus.message ? (
           <div className="text-sm text-muted-foreground flex items-center gap-2">
             {importStatus.isImporting && <Loader2 className="size-3 animate-spin" />}
             <span>
@@ -93,19 +117,43 @@ export function AppleMusicAuth({ onImportComplete }: AppleMusicAuthProps) {
               )}
             </span>
           </div>
-        )}
+        ) : lastImport ? (
+          <p className="text-xs text-muted-foreground">
+            Synced {formatRelativeTime(lastImport.date)}
+          </p>
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <Button variant="outline" onClick={handleConnect}>
-        <Music className="size-4" />
-        Connect Apple Music
+      <Button
+        variant="outline"
+        onClick={handleConnect}
+        disabled={isCheckingAuth}
+      >
+        {isCheckingAuth ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Music className="size-4" />
+        )}
+        {isCheckingAuth ? 'Checking...' : 'Connect Apple Music'}
       </Button>
       {error && (
-        <p className="text-sm text-destructive">{error.message}</p>
+        <div className="text-sm text-destructive space-y-1">
+          <p>{error.message}</p>
+          {error.message.includes('timed out') && (
+            <p className="text-xs text-muted-foreground">
+              Try disabling ad blockers or privacy extensions that may block Apple&apos;s MusicKit.
+            </p>
+          )}
+          {error.message.toLowerCase().includes('popup') && (
+            <p className="text-xs text-muted-foreground">
+              Click the blocked popup icon in your browser&apos;s address bar to allow popups from this site.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

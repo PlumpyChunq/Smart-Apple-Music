@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { Loader2, Check, Music2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSpotifyAuth, useSpotifyCallback, getCuratedTopArtists, getFollowedArtists } from '@/lib/spotify';
-import { searchArtists } from '@/lib/musicbrainz/client';
+import { searchArtists } from '@/lib/musicbrainz';
 import { SPOTIFY_CONFIG } from '@/lib/spotify/config';
 import {
   STORAGE_KEYS,
@@ -17,6 +17,84 @@ import {
   removeSessionItem,
   dispatchStorageEvent,
 } from '@/lib/storage';
+
+// Persistent cache for import tracking
+const SPOTIFY_IMPORT_CACHE_KEY = 'spotify-last-import';
+const FULL_SYNC_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days for full re-sync
+const BACKGROUND_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // Check for new artists every 4 hours
+
+type ImportCache = {
+  timestamp: number;
+  artistCount: number;
+  lastBackgroundCheck?: number;
+  importedArtistIds: string[]; // Spotify artist IDs we've already processed
+};
+
+function getImportCache(): ImportCache | null {
+  try {
+    const cached = localStorage.getItem(SPOTIFY_IMPORT_CACHE_KEY);
+    if (!cached) return null;
+    return JSON.parse(cached);
+  } catch {
+    return null;
+  }
+}
+
+function isImportCacheValid(): boolean {
+  const cache = getImportCache();
+  if (!cache) return false;
+  return Date.now() - cache.timestamp < FULL_SYNC_DURATION_MS;
+}
+
+function shouldBackgroundCheck(): boolean {
+  const cache = getImportCache();
+  if (!cache) return false;
+  const lastCheck = cache.lastBackgroundCheck || cache.timestamp;
+  return Date.now() - lastCheck > BACKGROUND_CHECK_INTERVAL_MS;
+}
+
+function getImportedArtistIds(): string[] {
+  const cache = getImportCache();
+  return cache?.importedArtistIds || [];
+}
+
+function saveImportCache(artistCount: number, artistIds: string[]): void {
+  const existingIds = getImportedArtistIds();
+  const allIds = [...new Set([...existingIds, ...artistIds])];
+  const cache: ImportCache = {
+    timestamp: Date.now(),
+    artistCount,
+    importedArtistIds: allIds,
+  };
+  localStorage.setItem(SPOTIFY_IMPORT_CACHE_KEY, JSON.stringify(cache));
+}
+
+function updateBackgroundCheckTime(): void {
+  const cache = getImportCache();
+  if (cache) {
+    cache.lastBackgroundCheck = Date.now();
+    localStorage.setItem(SPOTIFY_IMPORT_CACHE_KEY, JSON.stringify(cache));
+  }
+}
+
+function clearImportCache(): void {
+  localStorage.removeItem(SPOTIFY_IMPORT_CACHE_KEY);
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
 
 // Helper to add favorite directly to localStorage (works even when component unmounts)
 function addFavoriteToStorage(artist: { id: string; name: string; type: string; country?: string; genres?: string[] }) {
@@ -51,7 +129,7 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
   const { error: callbackError, isProcessing, clearError } = useSpotifyCallback();
   const importInProgressRef = useRef(false);
 
-  // Initialize state from sessionStorage synchronously to prevent race conditions
+  // Initialize state - check persistent cache first, then sessionStorage for in-progress imports
   const [isImporting, setIsImporting] = useState(() => {
     return getSessionItem<string>(SESSION_KEYS.SPOTIFY_IMPORTING) === 'true';
   });
@@ -59,6 +137,9 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
     return getSessionItem<string>(SESSION_KEYS.SPOTIFY_IMPORT_STATUS);
   });
   const [hasImported, setHasImported] = useState(() => {
+    // Check persistent cache first (survives browser restart)
+    if (isImportCacheValid()) return true;
+    // Fall back to session flag (for imports completed this session)
     return getSessionItem<string>(SESSION_KEYS.SPOTIFY_IMPORTED) === 'true';
   });
 
@@ -101,8 +182,8 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
 
   // Import artists from Spotify
   const importArtists = useCallback(async () => {
-    // Check both state and sessionStorage to prevent duplicate imports
-    const alreadyImported = hasImported || getSessionItem<string>(SESSION_KEYS.SPOTIFY_IMPORTED) === 'true';
+    // Check persistent cache, state, and sessionStorage to prevent duplicate imports
+    const alreadyImported = hasImported || isImportCacheValid() || getSessionItem<string>(SESSION_KEYS.SPOTIFY_IMPORTED) === 'true';
     const alreadyImporting = isImporting || getSessionItem<string>(SESSION_KEYS.SPOTIFY_IMPORTING) === 'true' || importInProgressRef.current;
 
     if (alreadyImported || alreadyImporting) return;
@@ -128,6 +209,7 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
       if (spotifyArtists.length === 0) {
         updateImportStatus('No artists found in your Spotify library.');
         setHasImported(true);
+        saveImportCache(0, []);
         setSessionItem(SESSION_KEYS.SPOTIFY_IMPORTED, 'true');
         removeSessionItem(SESSION_KEYS.SPOTIFY_IMPORTING);
         importInProgressRef.current = false;
@@ -138,6 +220,7 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
 
       let imported = 0;
       let processed = 0;
+      const importedIds: string[] = [];
 
       for (const spotifyArtist of spotifyArtists) {
         processed++;
@@ -161,6 +244,8 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
             if (wasAdded) {
               imported++;
             }
+            // Track Spotify ID for diff checking
+            importedIds.push(spotifyArtist.spotifyId);
           }
 
           // Small delay to respect MusicBrainz rate limit (1 req/sec)
@@ -177,6 +262,7 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
 
       updateImportStatus(message);
       setHasImported(true);
+      saveImportCache(imported, importedIds);
       setSessionItem(SESSION_KEYS.SPOTIFY_IMPORTED, 'true');
 
       // Clear status after a few seconds
@@ -194,12 +280,90 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
     }
   }, [hasImported, isImporting, onImportComplete, updateImportStatus]);
 
+  // Background diff sync - check for new artists without blocking UI
+  const backgroundSync = useCallback(async () => {
+    if (!shouldBackgroundCheck() || isImporting || importInProgressRef.current) {
+      return;
+    }
+
+    try {
+      const currentArtists = await getCuratedTopArtists(15);
+      if (currentArtists.length === 0) {
+        updateBackgroundCheckTime();
+        return;
+      }
+
+      // Find new artists we haven't imported yet
+      const alreadyImported = new Set(getImportedArtistIds());
+      const newArtists = currentArtists.filter((a) => !alreadyImported.has(a.spotifyId));
+
+      if (newArtists.length === 0) {
+        updateBackgroundCheckTime();
+        return;
+      }
+
+      // Import only the new artists quietly
+      console.log(`Spotify: Found ${newArtists.length} new artists, syncing...`);
+      let imported = 0;
+      const newIds: string[] = [];
+
+      for (const spotifyArtist of newArtists) {
+        try {
+          const mbResults = await searchArtists(spotifyArtist.name, 1);
+          if (mbResults.length > 0) {
+            const mbArtist = mbResults[0];
+            if (addFavoriteToStorage({
+              id: mbArtist.id,
+              name: mbArtist.name,
+              type: mbArtist.type,
+              country: mbArtist.country,
+              genres: mbArtist.genres,
+            })) {
+              imported++;
+            }
+            newIds.push(spotifyArtist.spotifyId);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1100));
+        } catch {
+          console.warn(`Background sync: Failed to match ${spotifyArtist.name}`);
+        }
+      }
+
+      // Update cache with new IDs
+      if (newIds.length > 0) {
+        const cache = getImportCache();
+        if (cache) {
+          cache.importedArtistIds = [...new Set([...cache.importedArtistIds, ...newIds])];
+          cache.lastBackgroundCheck = Date.now();
+          cache.artistCount += imported;
+          localStorage.setItem(SPOTIFY_IMPORT_CACHE_KEY, JSON.stringify(cache));
+        }
+
+        if (imported > 0) {
+          updateImportStatus(`Added ${imported} new artist${imported !== 1 ? 's' : ''} from Spotify`);
+          setTimeout(() => updateImportStatus(null), 5000);
+        }
+      } else {
+        updateBackgroundCheckTime();
+      }
+    } catch (err) {
+      console.error('Spotify background sync error:', err);
+      updateBackgroundCheckTime();
+    }
+  }, [isImporting, updateImportStatus]);
+
   // Trigger import after connection
   useEffect(() => {
-    if (isConnected && !hasImported && !isImporting) {
-      importArtists();
+    if (isConnected) {
+      if (!hasImported && !isImporting) {
+        // First time import
+        importArtists();
+      } else if (shouldBackgroundCheck()) {
+        // Already imported - do background diff check
+        backgroundSync();
+      }
     }
-  }, [isConnected, hasImported, isImporting, importArtists]);
+  }, [isConnected, hasImported, isImporting, importArtists, backgroundSync]);
 
   const handleConnect = async () => {
     clearError();
@@ -212,6 +376,7 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
     setIsImporting(false);
     setImportStatus(null);
     importInProgressRef.current = false;
+    clearImportCache();
     removeSessionItem(SESSION_KEYS.SPOTIFY_IMPORTED);
     removeSessionItem(SESSION_KEYS.SPOTIFY_IMPORTING);
     removeSessionItem(SESSION_KEYS.SPOTIFY_IMPORT_STATUS);
@@ -239,6 +404,8 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
 
   // Connected state
   if (isConnected) {
+    const lastImport = getImportCache();
+
     return (
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
@@ -251,12 +418,16 @@ export function SpotifyAuth({ onImportComplete }: SpotifyAuthProps) {
             Spotify Connected
           </Button>
         </div>
-        {(isImporting || importStatus) && (
+        {isImporting || importStatus ? (
           <div className="text-sm text-muted-foreground flex items-center gap-2">
             {isImporting && <Loader2 className="size-3 animate-spin" />}
             {importStatus}
           </div>
-        )}
+        ) : lastImport ? (
+          <p className="text-xs text-muted-foreground">
+            Synced {formatRelativeTime(new Date(lastImport.timestamp))}
+          </p>
+        ) : null}
       </div>
     );
   }

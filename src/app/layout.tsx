@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "InterChord - The Music Web",
   description: "Discover artist relationships and musical connections",
+  manifest: '/manifest.json',
   icons: {
     icon: [
       { url: '/icon-16.png', sizes: '16x16', type: 'image/png' },

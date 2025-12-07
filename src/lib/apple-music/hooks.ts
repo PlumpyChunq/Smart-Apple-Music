@@ -23,42 +23,90 @@ const AUTH_STORAGE_KEY = 'apple-music-authorized';
  */
 export function useAppleMusicAuth() {
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // Start with isLoading: false - show "Connect" button immediately
+  // Only show loading during active user interactions
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Check authorization status on mount
+  // Pre-initialize MusicKit and check authorization status on mount
+  // This ensures MusicKit is ready when user clicks "Connect" (avoids popup blocker)
   useEffect(() => {
-    async function checkAuth() {
+    let timeoutId: NodeJS.Timeout;
+    let mounted = true;
+
+    async function initAndCheckAuth() {
       try {
-        // Check if we previously authorized
-        const wasAuthorized = localStorage.getItem(AUTH_STORAGE_KEY) === 'true';
+        // Add timeout to prevent infinite waiting if MusicKit fails
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error('MusicKit initialization timed out'));
+          }, 8000); // 8 seconds - faster feedback
+        });
 
-        if (wasAuthorized) {
-          const music = await initializeMusicKit();
-          setIsAuthorized(music.isAuthorized);
+        // Always try to initialize MusicKit (needed for authorize() to work)
+        const music = await Promise.race([
+          initializeMusicKit(),
+          timeoutPromise,
+        ]);
 
-          // Update storage if authorization expired
-          if (!music.isAuthorized) {
+        clearTimeout(timeoutId);
+
+        if (mounted) {
+          // Check if we were previously authorized
+          const wasAuthorized = localStorage.getItem(AUTH_STORAGE_KEY) === 'true';
+
+          if (wasAuthorized && music.isAuthorized) {
+            setIsAuthorized(true);
+          } else if (wasAuthorized && !music.isAuthorized) {
+            // Authorization expired - clear stored state
             localStorage.removeItem(AUTH_STORAGE_KEY);
           }
         }
       } catch (err) {
-        console.error('Error checking Apple Music auth:', err);
-        setError(err instanceof Error ? err : new Error('Failed to check auth'));
+        console.error('Error initializing MusicKit:', err);
+        // Clear stored auth state if MusicKit failed to load
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        // Don't set error for background init - only for user-initiated actions
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsCheckingAuth(false);
+        }
       }
     }
 
-    checkAuth();
+    initAndCheckAuth();
+
+    return () => {
+      mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   const connect = useCallback(async () => {
-    setIsLoading(true);
     setError(null);
 
     try {
-      const music = await initializeMusicKit();
+      // Get the pre-initialized MusicKit instance (should be ready from useEffect)
+      const music = getMusicKitInstance();
+
+      if (!music) {
+        // MusicKit not ready - try to initialize (this may cause popup blocker issues)
+        setIsLoading(true);
+        const freshMusic = await initializeMusicKit();
+        const userToken = await freshMusic.authorize();
+        setIsLoading(false);
+
+        if (userToken) {
+          setIsAuthorized(true);
+          localStorage.setItem(AUTH_STORAGE_KEY, 'true');
+          return true;
+        }
+        return false;
+      }
+
+      // MusicKit is pre-initialized - authorize() should work without popup blocker
+      // Note: Don't set isLoading here as the popup handles its own UI
       const userToken = await music.authorize();
 
       if (userToken) {
@@ -72,7 +120,14 @@ export function useAppleMusicAuth() {
       }
     } catch (err) {
       console.error('Error connecting Apple Music:', err);
-      setError(err instanceof Error ? err : new Error('Failed to connect'));
+      const errorMessage = err instanceof Error ? err.message : 'Failed to connect';
+
+      // Check for common popup blocker error
+      if (errorMessage.includes('popup') || errorMessage.includes('blocked')) {
+        setError(new Error('Popup was blocked. Please allow popups for this site and try again.'));
+      } else {
+        setError(err instanceof Error ? err : new Error('Failed to connect'));
+      }
       return false;
     } finally {
       setIsLoading(false);
@@ -99,6 +154,7 @@ export function useAppleMusicAuth() {
   return {
     isAuthorized,
     isLoading,
+    isCheckingAuth,
     error,
     connect,
     disconnect,

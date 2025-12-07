@@ -4,12 +4,56 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { ArtistGraph, ArtistNode, ArtistRelationship } from '@/types';
 import type { ExpansionDepth } from './types';
 import { buildGraphData, mergeGraphData } from './builder';
-import { getArtistRelationships } from '@/lib/musicbrainz/client';
+import { cacheGet, cacheSet, CacheTTL } from '@/lib/cache';
 
 interface RelationshipsData {
   artist: ArtistNode;
   relationships: ArtistRelationship[];
   relatedArtists: ArtistNode[];
+}
+
+/**
+ * Fetch artist relationships with localStorage caching
+ * Uses API route which leverages local DB when available
+ */
+async function getArtistRelationshipsCached(mbid: string): Promise<RelationshipsData | null> {
+  const cacheKey = `artist-relationships-${mbid}`;
+
+  // Check localStorage cache first
+  const cached = cacheGet<RelationshipsData>(cacheKey);
+  if (cached) {
+    console.log(`[Cache HIT] Relationships for ${mbid}`);
+    return cached;
+  }
+
+  console.log(`[Cache MISS] Fetching relationships for ${mbid}`);
+
+  try {
+    // Use API route which tries local DB first, falls back to rate-limited API
+    const response = await fetch(`/api/musicbrainz/artist/${mbid}?include=relationships`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch relationships: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    const result: RelationshipsData = {
+      artist: data.artist,
+      relationships: data.relationships,
+      relatedArtists: data.relatedArtists,
+    };
+
+    // Cache for 1 week (relationships rarely change)
+    cacheSet(cacheKey, result, CacheTTL.LONG);
+
+    console.log(`[Cache SET] Relationships for ${mbid} (source: ${data.source}, ${data.latencyMs}ms)`);
+
+    return result;
+  } catch (error) {
+    console.error('Failed to fetch relationships:', error);
+    return null;
+  }
 }
 
 export interface UseGraphExpansionResult {
@@ -104,7 +148,7 @@ export function useGraphExpansion(
         setExpandProgress({ current: i + 1, total: nodesToExpand.length });
 
         try {
-          const expandedData = await getArtistRelationships(nodeToExpand.id);
+          const expandedData = await getArtistRelationshipsCached(nodeToExpand.id);
 
           if (expandedData) {
             const newGraph = buildGraphData(
@@ -159,7 +203,7 @@ export function useGraphExpansion(
     setIsExpanding(true);
 
     try {
-      const expandedData = await getArtistRelationships(nodeId);
+      const expandedData = await getArtistRelationshipsCached(nodeId);
 
       if (expandedData) {
         const newGraph = buildGraphData(
