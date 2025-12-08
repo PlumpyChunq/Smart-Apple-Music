@@ -1,6 +1,6 @@
 # InterChord - Project Progress
 
-> Last Updated: 2025-12-02
+> Last Updated: 2025-12-07
 
 ## Current Status: **Phase 3 - Extended Discovery (In Progress)**
 
@@ -163,40 +163,105 @@ Leverage ALL MusicBrainz relationship types for richer discovery:
 
 ## Upcoming
 
-### Phase 4: MusicBrainz Database Mirror (Proxmox VM)
-**Priority: Move up after basic discovery works** - Eliminates rate limiting!
+### Phase 4: MusicBrainz Database Mirror ✅ DEPLOYED
+**Status:** Running on stonefrog-db01 (192.168.2.67)
 
-#### VM System Requirements (Bluemont Proxmox Lab)
+#### Production VM Configuration (stonefrog-db01)
 
-| Resource | With Search | Without Search | Notes |
-|----------|-------------|----------------|-------|
-| **CPU** | 16 threads | 2 threads | x86-64 architecture |
-| **RAM** | 16 GB | 4 GB | More = better query performance |
-| **Disk** | 350 GB SSD | 100 GB SSD | SSD strongly recommended |
-| **OS** | Ubuntu 22.04 LTS | Ubuntu 22.04 LTS | Linux required (no Windows) |
+| Resource | Configured | MusicBrainz Recommended | Notes |
+|----------|------------|-------------------------|-------|
+| **CPU** | 8 cores | 16 threads | Sufficient for mirror + API |
+| **RAM** | 16 GB | 16 GB | ✅ Matches recommendation |
+| **Disk** | 750 GB | 350 GB | ✅ Exceeds (actual usage ~450GB) |
+| **OS** | Rocky Linux 10 | Ubuntu 22.04 | Works fine with Podman |
 
-#### Software Stack
-- Docker Compose 2+
-- PostgreSQL 16 (via Docker)
-- Solr 4.1.0 (for search indexes)
-- Git, Bash 4+
+#### Software Stack (Deployed)
+- Podman + Podman Compose (rootless)
+- PostgreSQL 16 (containerized)
+- Solr 9.7.0 (all 15 search indexes)
+- Systemd user services for auto-start
 
-#### Setup Tasks
-- [ ] Create Ubuntu 22.04 VM in Proxmox
-- [ ] Install Docker and Docker Compose
-- [ ] Clone musicbrainz-docker repository
-- [ ] Run initial database import (~4-6 hours)
-- [ ] Configure replication (live data feed)
-- [ ] Set up search indexes (optional, +60GB)
-- [ ] Create API endpoint for our app
-- [ ] Update app to use local DB instead of public API
+#### Completed Setup
+- [x] Create VM in Proxmox (stonefrog-db01)
+- [x] Install Podman and Podman Compose
+- [x] Clone musicbrainz-docker repository
+- [x] Run initial database import
+- [x] Set up all 15 Solr search indexes
+- [x] Configure hourly replication (cron inside container)
+- [x] Create API endpoint (port 5000)
+- [x] Update app to use local DB via API routes
+- [x] Set up systemd user services for auto-start
+- [x] Configure Cloudflare tunnel for HTTPS access
+- [ ] Set up live indexing (RabbitMQ + SIR) - IN PROGRESS
 
-#### Benefits
-- **No rate limits** - instant queries
-- **Full relationship data** - all entity types
-- **Offline capability** - works without internet
-- **Custom queries** - direct SQL access
-- **Historical data** - edit history available
+#### MusicBrainz Mirror Maintenance
+
+##### Automated Tasks
+| Task | Frequency | Method | Status |
+|------|-----------|--------|--------|
+| DB Replication | Hourly | Container cron | ✅ Configured |
+| Solr Live Indexing | Real-time | RabbitMQ + SIR | ⏳ Setting up |
+
+##### Live Indexing Setup (Preferred over Weekly Refresh)
+Uses RabbitMQ message queue + SIR (Search Index Rebuilder) for real-time Solr updates.
+
+**Benefits:**
+- Steady resource usage (no spiky downloads)
+- Search indexes stay within minutes of database
+- No weekly 60GB downloads
+
+**Components:**
+- RabbitMQ (message queue) - port 5672, web UI 15672
+- SIR Indexer (consumes messages, updates Solr)
+- PostgreSQL AMQP triggers (notify on data changes)
+
+**Configuration:**
+```bash
+# Enable live indexing
+admin/create-amqp-extension
+admin/setup-amqp-triggers install
+podman-compose exec indexer python -m sir amqp_setup
+admin/configure add live-indexing-search
+podman-compose up -d
+```
+
+**Key settings (indexer.ini):**
+- `import_threads = 8`
+- `live_index_batch_size = 100`
+- `process_delay = 15` (seconds between batches)
+
+##### Manual Maintenance (Periodic)
+| Task | Frequency | Notes |
+|------|-----------|-------|
+| Check disk space | Monthly | `df -h` - keep >50GB free |
+| Check replication health | Monthly | Query `replication_control` table |
+| Container updates | Quarterly | `podman pull` new images |
+| Schema changes | ~2x/year | Watch MetaBrainz blog, rebuild required |
+
+##### Schema Change Procedure
+When MusicBrainz announces schema changes:
+1. Replication stops working
+2. Pull latest musicbrainz-docker
+3. Rebuild containers
+4. Re-run: `admin/setup-amqp-triggers uninstall && admin/setup-amqp-triggers install`
+
+#### Actual Disk Usage (Dec 2025)
+| Component | Size |
+|-----------|------|
+| PostgreSQL database | ~80 GB |
+| Solr recording index | ~150 GB |
+| Solr other indexes (14) | ~50 GB |
+| Container images/runtime | ~30 GB |
+| OS + working space | ~95 GB |
+| **Total Used** | **~405 GB** |
+| **Available** | **~345 GB** |
+
+#### Benefits Achieved
+- **No rate limits** - instant queries ✅
+- **Full relationship data** - all entity types ✅
+- **Offline capability** - works without internet ✅
+- **Custom queries** - direct SQL access ✅
+- **Historical data** - edit history available ✅
 
 ### Phase 5: Polish & Deploy
 - [ ] Error handling and loading states

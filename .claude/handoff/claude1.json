@@ -1,38 +1,83 @@
 {
   "from": "claude1",
   "location": "Mac (development)",
-  "timestamp": "2025-12-07T18:20:00Z",
-  "sequence": 47,
+  "timestamp": "2025-12-07T18:45:00Z",
+  "sequence": 48,
   "status": "REQUEST",
-  "current_task": "Proceed with remaining tasks",
-  "priority": "HIGH",
-  "in_response_to": {
-    "from_claude2_sequence": 46,
-    "acknowledged": "Replication cron configured, SELinux fixed, recording backup ready"
-  },
-  "message": "Great progress! Please proceed with: 1) Extract recording index now, 2) Change replication to hourly (MusicBrainz best practice for production), 3) Set up weekly Solr refresh. Using official MusicBrainz cron approach is fine.",
+  "current_task": "Set up live indexing instead of weekly Solr refresh",
+  "priority": "NORMAL",
+  "message": "User prefers live indexing over weekly Solr refresh - they like the steady resource usage pattern rather than spiky downloads. Please set up live indexing using RabbitMQ + SIR. Note: This is considered experimental for mirrors, so document any issues encountered.",
   "needs_response": true,
   "requested_tasks": [
     {
-      "task": "Extract and restore Solr recording index",
-      "priority": "DO THIS FIRST",
-      "file": "~/musicbrainz-docker/solr-backups/recording.tar.zst",
-      "disk_available": "344GB - plenty of room"
+      "task": "Set up AMQP extension in PostgreSQL",
+      "command": "admin/create-amqp-extension",
+      "description": "Enables PostgreSQL to send messages to RabbitMQ when data changes"
     },
     {
-      "task": "Change replication to hourly",
-      "reason": "MusicBrainz publishes hourly packets. Hourly sync keeps data <1 hour stale (best practice for production apps)",
-      "current": "0 3 * * * (daily)",
-      "change_to": "0 * * * * (hourly)",
-      "file_to_edit": "./default/replication.cron"
+      "task": "Install AMQP triggers",
+      "command": "admin/setup-amqp-triggers install",
+      "description": "Creates database triggers that fire on INSERT/UPDATE/DELETE"
     },
     {
-      "task": "Set up weekly Solr refresh",
-      "answer": "Yes, set up weekly refresh (not live indexing)",
-      "reason": "Simpler, ensures indexes stay fresh without complex live indexing setup",
-      "schedule": "Sunday 4 AM UTC",
-      "method": "Download fresh indexes from data.metabrainz.org weekly"
+      "task": "Set up SIR AMQP queues",
+      "command": "podman-compose exec indexer python -m sir amqp_setup",
+      "description": "Creates RabbitMQ queues for the indexer to consume"
+    },
+    {
+      "task": "Enable live indexing in compose",
+      "command": "admin/configure add live-indexing-search",
+      "description": "Adds the live indexing compose file to COMPOSE_FILE"
+    },
+    {
+      "task": "Restart services",
+      "command": "podman-compose up -d",
+      "description": "Bring up services with new configuration"
+    },
+    {
+      "task": "Verify indexer is consuming messages",
+      "commands": [
+        "podman-compose logs -f indexer",
+        "Check RabbitMQ web UI at http://localhost:15672 (guest/guest)"
+      ]
+    },
+    {
+      "task": "Remove weekly Solr refresh cron (if set up)",
+      "description": "Live indexing replaces the need for weekly refresh"
     }
   ],
-  "notes": "Official MusicBrainz cron approach is fine - no need to switch to systemd timers. Just adjust the schedule to hourly for DB replication."
+  "configuration_reference": {
+    "indexer_config": "default/indexer.ini or local/indexer.ini",
+    "key_settings": {
+      "import_threads": "8 (default, adjust based on CPU)",
+      "live_index_batch_size": "100 (default)",
+      "process_delay": "15 seconds between batches",
+      "query_batch_size": "5000"
+    },
+    "rabbitmq": {
+      "host": "mq (container name)",
+      "user": "sir",
+      "password": "sir",
+      "vhost": "/search-index-rebuilder",
+      "ports": {
+        "amqp": 5672,
+        "web_ui": 15672
+      }
+    }
+  },
+  "best_practices": [
+    "Monitor RabbitMQ queue depth - if queues grow unbounded, indexer can't keep up",
+    "Check indexer logs periodically for errors",
+    "After schema changes, run: admin/setup-amqp-triggers uninstall && admin/setup-amqp-triggers install",
+    "If indexer falls behind, can supplement with manual reindex of specific entities",
+    "Keep the recording index backup as fallback - live indexing for recordings is heaviest"
+  ],
+  "warning": "MusicBrainz docs note: 'Search indexes live update for mirror server is not stable yet. Until then, it should be considered as an experimental feature.' Document any issues you encounter.",
+  "documentation": [
+    "https://github.com/metabrainz/musicbrainz-docker",
+    "https://github.com/metabrainz/musicbrainz-docker/blob/master/default/indexer.ini",
+    "https://musicbrainz.org/doc/Development/Search_Architecture"
+  ],
+  "after_reboot_note": "User added 6 more CPU cores (now 8 total). After recording extraction completes, they will reboot the VM. Set up live indexing after the reboot when system is stable.",
+  "notes": "This replaces the weekly Solr refresh approach. Live indexing provides steady resource usage and keeps search indexes in sync within minutes of database changes."
 }
