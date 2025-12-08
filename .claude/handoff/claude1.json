@@ -1,83 +1,55 @@
 {
   "from": "claude1",
   "location": "Mac (development)",
-  "timestamp": "2025-12-07T18:45:00Z",
-  "sequence": 48,
+  "timestamp": "2025-12-08T15:25:00Z",
+  "sequence": 49,
   "status": "REQUEST",
-  "current_task": "Set up live indexing instead of weekly Solr refresh",
-  "priority": "NORMAL",
-  "message": "User prefers live indexing over weekly Solr refresh - they like the steady resource usage pattern rather than spiky downloads. Please set up live indexing using RabbitMQ + SIR. Note: This is considered experimental for mirrors, so document any issues encountered.",
+  "current_task": "Verify Solr after reboot, then set up live indexing",
+  "priority": "HIGH",
+  "message": "Server just rebooted. Please: 1) Verify Solr is working (ZooKeeper should have re-registered nodes), 2) If Solr works, proceed to set up live indexing. 3) If Solr still shows 0 docs, troubleshoot.",
   "needs_response": true,
-  "requested_tasks": [
+  "immediate_steps": [
     {
-      "task": "Set up AMQP extension in PostgreSQL",
-      "command": "admin/create-amqp-extension",
-      "description": "Enables PostgreSQL to send messages to RabbitMQ when data changes"
+      "step": 1,
+      "task": "Verify Solr cluster is healthy",
+      "command": "curl -s localhost:8983/solr/admin/collections?action=CLUSTERSTATUS | jq '.cluster.live_nodes'"
     },
     {
-      "task": "Install AMQP triggers",
-      "command": "admin/setup-amqp-triggers install",
-      "description": "Creates database triggers that fire on INSERT/UPDATE/DELETE"
+      "step": 2,
+      "task": "Check artist index has docs",
+      "command": "curl -s 'localhost:8983/solr/artist/select?q=*:*&rows=0' | jq .response.numFound",
+      "expected": "~2.7 million"
     },
     {
-      "task": "Set up SIR AMQP queues",
-      "command": "podman-compose exec indexer python -m sir amqp_setup",
-      "description": "Creates RabbitMQ queues for the indexer to consume"
-    },
-    {
-      "task": "Enable live indexing in compose",
-      "command": "admin/configure add live-indexing-search",
-      "description": "Adds the live indexing compose file to COMPOSE_FILE"
-    },
-    {
-      "task": "Restart services",
-      "command": "podman-compose up -d",
-      "description": "Bring up services with new configuration"
-    },
-    {
-      "task": "Verify indexer is consuming messages",
-      "commands": [
-        "podman-compose logs -f indexer",
-        "Check RabbitMQ web UI at http://localhost:15672 (guest/guest)"
-      ]
-    },
-    {
-      "task": "Remove weekly Solr refresh cron (if set up)",
-      "description": "Live indexing replaces the need for weekly refresh"
+      "step": 3,
+      "task": "Check recording index has docs",
+      "command": "curl -s 'localhost:8983/solr/recording/select?q=*:*&rows=0' | jq .response.numFound",
+      "expected": "~35 million"
     }
   ],
-  "configuration_reference": {
-    "indexer_config": "default/indexer.ini or local/indexer.ini",
-    "key_settings": {
-      "import_threads": "8 (default, adjust based on CPU)",
-      "live_index_batch_size": "100 (default)",
-      "process_delay": "15 seconds between batches",
-      "query_batch_size": "5000"
-    },
-    "rabbitmq": {
-      "host": "mq (container name)",
-      "user": "sir",
-      "password": "sir",
-      "vhost": "/search-index-rebuilder",
-      "ports": {
-        "amqp": 5672,
-        "web_ui": 15672
-      }
-    }
+  "if_solr_works": {
+    "next_task": "Set up live indexing",
+    "steps": [
+      "cd ~/musicbrainz-docker",
+      "admin/create-amqp-extension",
+      "admin/setup-amqp-triggers install",
+      "podman-compose exec indexer python -m sir amqp_setup",
+      "admin/configure add live-indexing-search",
+      "podman-compose up -d",
+      "Verify: podman-compose logs -f indexer"
+    ]
   },
-  "best_practices": [
-    "Monitor RabbitMQ queue depth - if queues grow unbounded, indexer can't keep up",
-    "Check indexer logs periodically for errors",
-    "After schema changes, run: admin/setup-amqp-triggers uninstall && admin/setup-amqp-triggers install",
-    "If indexer falls behind, can supplement with manual reindex of specific entities",
-    "Keep the recording index backup as fallback - live indexing for recordings is heaviest"
-  ],
-  "warning": "MusicBrainz docs note: 'Search indexes live update for mirror server is not stable yet. Until then, it should be considered as an experimental feature.' Document any issues you encounter.",
-  "documentation": [
-    "https://github.com/metabrainz/musicbrainz-docker",
-    "https://github.com/metabrainz/musicbrainz-docker/blob/master/default/indexer.ini",
-    "https://musicbrainz.org/doc/Development/Search_Architecture"
-  ],
-  "after_reboot_note": "User added 6 more CPU cores (now 8 total). After recording extraction completes, they will reboot the VM. Set up live indexing after the reboot when system is stable.",
-  "notes": "This replaces the weekly Solr refresh approach. Live indexing provides steady resource usage and keeps search indexes in sync within minutes of database changes."
+  "if_solr_still_broken": {
+    "troubleshooting": [
+      "Check ZooKeeper: podman-compose logs mq",
+      "Check Solr: podman-compose logs search",
+      "May need to re-run: admin/load-backup-archives",
+      "Or download fresh consistent backup set from same date"
+    ]
+  },
+  "context": {
+    "cpu_cores": "8 (should now be active after reboot)",
+    "disk_available": "~287GB",
+    "replication": "Hourly cron already configured"
+  }
 }
