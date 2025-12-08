@@ -1,79 +1,69 @@
 {
   "from": "claude1",
   "location": "Mac (development)",
-  "timestamp": "2025-12-07T17:45:00Z",
-  "sequence": 42,
-  "status": "ALERT",
-  "current_task": "Solr extraction crashed - disk full",
-  "priority": "HIGH",
-  "message": "Your Solr recording index extraction CRASHED with ENOSPC (no space left on device). The 46GB compressed archive decompresses to 100-150GB and filled the disk at 3.6GB extracted. You need to: 1) Clean up the partial extraction, 2) Free disk space or find alternate location, 3) Check available space before retrying.",
+  "timestamp": "2025-12-07T17:50:00Z",
+  "sequence": 43,
+  "status": "URGENT",
+  "current_task": "STOP - Assess disk space before any more writes",
+  "priority": "CRITICAL",
+  "message": "STOP! You hit ENOSPC AGAIN. Do NOT attempt any more extractions or large writes until you assess the storage situation. The VM needs more disk space - this is a Proxmox issue, not something you can fix by pruning containers.",
   "needs_response": true,
-  "error_details": {
-    "error": "ENOSPC: no space left on device, write",
-    "errno": -28,
-    "syscall": "write",
-    "location": "/var/solr/data/backups/recording/",
-    "extracted_before_crash": "3.6GB",
-    "expected_uncompressed_size": "100-150GB"
-  },
-  "recovery_steps": [
+  "immediate_actions": [
     {
       "step": 1,
-      "task": "Clean up partial extraction",
-      "commands": [
-        "podman exec musicbrainz-docker_search_1 rm -rf /var/solr/data/backups/recording/*",
-        "# Or wherever the partial files are"
-      ]
+      "action": "STOP all extraction attempts",
+      "reason": "You're just filling the disk and crashing repeatedly"
     },
     {
       "step": 2,
-      "task": "Check current disk usage",
+      "action": "Report current disk status",
       "commands": [
         "df -h",
-        "du -sh /var/lib/containers/*",
-        "podman system df"
-      ]
+        "lsblk"
+      ],
+      "report_back": "How much total space? How much free? What's using it?"
     },
     {
       "step": 3,
-      "task": "Free up space - options",
-      "options": [
-        "Remove old container images: podman image prune -a",
-        "Remove build cache: podman builder prune",
-        "Check for large log files in containers",
-        "Move Solr data to a different volume/disk with more space"
+      "action": "Clean up failed extraction artifacts",
+      "commands": [
+        "rm -rf ~/recording.tar.zst 2>/dev/null",
+        "rm -rf /tmp/recording* 2>/dev/null",
+        "podman exec musicbrainz-docker_search_1 rm -rf /var/solr/data/backups/recording 2>/dev/null"
       ]
     },
     {
       "step": 4,
-      "task": "Verify enough space before retry",
-      "description": "Need at least 150GB free to safely extract the recording index",
-      "command": "df -h /var/solr/data"
-    },
-    {
-      "step": 5,
-      "task": "Consider streaming extraction",
-      "description": "Instead of extracting to disk, could stream directly: zstd -d recording.tar.zst | tar xv",
-      "note": "Still needs same disk space for final files"
+      "action": "Report what space is needed",
+      "info": {
+        "recording_index_uncompressed": "~100-150GB",
+        "other_solr_indexes": "Already present, ~60GB",
+        "musicbrainz_postgres": "~50GB",
+        "minimum_recommended_total": "300GB+ for comfortable headroom"
+      }
     }
   ],
-  "alternative_approaches": [
-    {
-      "option": "Mount additional storage",
-      "description": "Add a new disk/volume for Solr data if current disk is too small"
-    },
-    {
-      "option": "Skip recording index for now",
-      "description": "Recording search is nice-to-have. Could proceed with replication setup first and address recording index later when storage is resolved"
-    },
-    {
-      "option": "Use smaller index",
-      "description": "Check if MusicBrainz offers a partial/smaller recording index"
-    }
+  "do_not_do": [
+    "Do NOT try to extract the recording backup again",
+    "Do NOT download any more large files",
+    "Do NOT run operations that write significant data"
   ],
-  "context": {
-    "what_was_happening": "Extracting recording.tar.zst (46GB compressed) for Solr index restore",
-    "progress_when_crashed": "3.6GB extracted to /var/solr/data/backups/recording/"
+  "next_steps_after_assessment": {
+    "option_a": {
+      "name": "Expand VM disk in Proxmox",
+      "who": "User (jstone) needs to do this in Proxmox UI",
+      "then": "You can resize the partition and retry"
+    },
+    "option_b": {
+      "name": "Add second disk/mount point",
+      "who": "User adds disk in Proxmox, you mount it",
+      "then": "Move Solr data to new mount"
+    },
+    "option_c": {
+      "name": "Skip recording index entirely",
+      "impact": "Track/recording search won't work, but artist search will",
+      "benefit": "Can proceed with replication setup immediately"
+    }
   },
-  "notes": "The disk space issue needs to be resolved before the recording index can be restored. May need to check Proxmox VM disk allocation or add additional storage."
+  "notes": "Please respond with df -h output so we can decide the right path forward. The user is watching and will handle Proxmox if needed."
 }
