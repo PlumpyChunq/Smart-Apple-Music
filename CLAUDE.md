@@ -274,6 +274,9 @@ MUSICBRAINZ_DB_USER=musicbrainz
 MUSICBRAINZ_DB_PASSWORD=musicbrainz
 MUSICBRAINZ_DB_NAME=musicbrainz_db
 
+# Solr (for fast autocomplete search)
+SOLR_URL=http://host.containers.internal:8983/solr
+
 # User Database (container network)
 DATABASE_URL=postgres://interchord:your_password@interchord-db:5433/interchord
 

@@ -21,6 +21,16 @@ export {
   useArtistGraph,
 } from './hooks';
 
+// Autocomplete hook
+export { useAutocomplete } from './use-autocomplete';
+
+// Solr client (server-side only)
+export {
+  autocompleteArtists,
+  searchArtistsSolr,
+  testSolrConnection,
+} from './solr-client';
+
 // Data source with fallback (server-side only)
 // Use via API routes: /api/musicbrainz/*
 export type { DataSource, DataSourceResult } from './data-source';

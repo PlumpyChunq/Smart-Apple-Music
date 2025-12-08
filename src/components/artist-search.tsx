@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useArtistSearch } from '@/lib/musicbrainz/hooks';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { AutocompleteInput } from '@/components/autocomplete-input';
 import { FavoritesByGenre } from '@/components/favorites-by-genre';
 import { FAVORITES_KEY, type StoredArtist } from '@/lib/favorites';
 import type { ArtistNode } from '@/types';
@@ -19,18 +19,19 @@ interface ArtistSearchProps {
 const INITIAL_RESULTS_DISPLAY = 5;
 
 export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
-  const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<StoredArtist[]>([]);
   const [favorites, setFavorites] = useState<StoredArtist[]>([]);
   const [showAllResults, setShowAllResults] = useState(false);
 
-  const { data: results, isLoading, error } = useArtistSearch(searchQuery);
+  const { data: results, error } = useArtistSearch(searchQuery);
 
-  // Reset expansion when search query changes
-  useEffect(() => {
-    setShowAllResults(false);
-  }, [searchQuery]);
+  // Reset expansion when search query changes (ref-based to avoid effect)
+  const prevSearchQueryRef = useRef(searchQuery);
+  if (prevSearchQueryRef.current !== searchQuery) {
+    prevSearchQueryRef.current = searchQuery;
+    if (showAllResults) setShowAllResults(false);
+  }
 
   // Load recent searches and favorites from localStorage on mount
   useEffect(() => {
@@ -132,18 +133,24 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
     });
   }, []);
 
-  const handleSearch = useCallback(() => {
-    if (inputValue.trim().length >= 2) {
-      setSearchQuery(inputValue.trim());
+  // Handle full search (when user presses Enter without selecting from dropdown)
+  const handleSearch = useCallback((query: string) => {
+    if (query.length >= 2) {
+      setSearchQuery(query);
     }
-  }, [inputValue]);
+  }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
+  // Handle direct selection from autocomplete dropdown
+  const handleAutocompleteSelect = useCallback(
+    (artist: ArtistNode) => {
+      saveRecentSearch(artist);
+      setSearchQuery(''); // Clear search results when selecting from autocomplete
+      onSelectArtist(artist);
+    },
+    [saveRecentSearch, onSelectArtist]
+  );
 
+  // Handle selection from search results list
   const handleSelectArtist = useCallback(
     (artist: ArtistNode) => {
       saveRecentSearch(artist);
@@ -196,27 +203,15 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
     });
   }, []);
 
-  // Extract artist names for the concerts hook
-  const favoriteArtistNames = useMemo(
-    () => favorites.map((f) => f.name),
-    [favorites]
-  );
-
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
-      <div className="flex gap-2">
-        <Input
-          type="search"
-          placeholder="Search for an artist (e.g., Butthole Surfers)"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="flex-1"
-        />
-        <Button onClick={handleSearch} disabled={inputValue.length < 2 || isLoading}>
-          {isLoading ? 'Searching...' : 'Search'}
-        </Button>
-      </div>
+      {/* Autocomplete Search Input */}
+      <AutocompleteInput
+        placeholder="Search for an artist (e.g., Butthole Surfers)"
+        onSelect={handleAutocompleteSelect}
+        onSearch={handleSearch}
+        autoFocus
+      />
 
       {/* Search Results - appear first when there's a search */}
       {error && (

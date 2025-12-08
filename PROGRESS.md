@@ -1,6 +1,6 @@
 # InterChord - Project Progress
 
-> Last Updated: 2025-12-07
+> Last Updated: 2025-12-08
 
 ## Current Status: **Phase 3 - Extended Discovery (In Progress)**
 
@@ -262,6 +262,25 @@ When MusicBrainz announces schema changes:
 - **Offline capability** - works without internet ✅
 - **Custom queries** - direct SQL access ✅
 - **Historical data** - edit history available ✅
+
+#### Solr Index Capabilities
+
+| Index | InterChord Use | Benefit |
+|-------|----------------|---------|
+| **artist** (2.7M) | Search bar, autocomplete | Find "Beatles" instantly, fuzzy matching |
+| **recording** (35M) | Song/track search | "Search for songs by title" feature |
+| **release** (3M+) | Album search | Find albums, EPs, singles |
+| **work** (1.5M+) | Composition search | Find covers, classical works, songwriting credits |
+| **release-group** | Album groupings | Group reissues/editions together |
+| **label** | Label search | "Find artists on Sub Pop" |
+| **place/area** | Location search | Venues, cities, regions |
+| **event** | Concert/festival data | Historical events in MusicBrainz |
+
+**Future Features Enabled:**
+- **Track search** - Users search "Stairway to Heaven" and see all covers/versions
+- **Similar songs** - Find recordings of the same work (covers, live versions)
+- **Label exploration** - "Show me all artists on 4AD Records"
+- **Venue history** - "Who played at Red Rocks?" (via place + event indexes)
 
 ### Phase 5: Polish & Deploy
 - [ ] Error handling and loading states
