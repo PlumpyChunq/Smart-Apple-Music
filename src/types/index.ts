@@ -204,6 +204,143 @@ export interface MusicBrainzArtistWithReleases extends MusicBrainzArtist {
 }
 
 // ============================================================================
+// Search Entity Types (Multi-Entity Search)
+// ============================================================================
+
+/**
+ * Search entity types supported by Solr
+ */
+export type SearchEntityType =
+  | 'artist'
+  | 'recording'
+  | 'release'
+  | 'release-group'
+  | 'work'
+  | 'label'
+  | 'place'
+  | 'area'
+  | 'event';
+
+/**
+ * Recording (song/track) search result
+ */
+export interface RecordingNode {
+  id: string;                    // MusicBrainz MBID
+  name: string;                  // Track title
+  artistCredit?: string;         // Artist name(s)
+  artistId?: string;             // Primary artist MBID
+  duration?: number;             // Duration in milliseconds
+  disambiguation?: string;
+  releaseTitle?: string;         // Album name
+  releaseId?: string;            // Album MBID
+  isrc?: string;                 // International Standard Recording Code
+}
+
+/**
+ * Release (album/EP/single) search result
+ */
+export interface ReleaseNode {
+  id: string;                    // MusicBrainz MBID
+  name: string;                  // Album title
+  artistCredit?: string;         // Artist name(s)
+  artistId?: string;             // Primary artist MBID
+  type?: string;                 // Album, EP, Single, etc.
+  date?: string;                 // Release date
+  country?: string;              // Release country
+  labelName?: string;            // Record label
+  barcode?: string;
+  disambiguation?: string;
+}
+
+/**
+ * Release Group (album grouping) search result
+ */
+export interface ReleaseGroupNode {
+  id: string;                    // MusicBrainz MBID
+  name: string;                  // Album title
+  artistCredit?: string;         // Artist name(s)
+  artistId?: string;             // Primary artist MBID
+  type?: string;                 // Album, EP, Single, etc.
+  firstReleaseDate?: string;     // Earliest release date
+  disambiguation?: string;
+}
+
+/**
+ * Work (composition) search result
+ */
+export interface WorkNode {
+  id: string;                    // MusicBrainz MBID
+  name: string;                  // Composition title
+  type?: string;                 // Song, Opera, Symphony, etc.
+  iswc?: string;                 // International Standard Musical Work Code
+  disambiguation?: string;
+  artistCredit?: string;         // Composer/writer names
+}
+
+/**
+ * Label (record label) search result
+ */
+export interface LabelNode {
+  id: string;                    // MusicBrainz MBID
+  name: string;                  // Label name
+  type?: string;                 // Major, Indie, etc.
+  country?: string;              // Country of origin
+  foundedYear?: string;          // Year founded
+  disambiguation?: string;
+}
+
+/**
+ * Place (venue/studio) search result
+ */
+export interface PlaceNode {
+  id: string;                    // MusicBrainz MBID
+  name: string;                  // Place name
+  type?: string;                 // Venue, Studio, Stadium, etc.
+  address?: string;
+  area?: string;                 // City/region
+  country?: string;
+  disambiguation?: string;
+}
+
+/**
+ * Area (geographic region) search result
+ */
+export interface AreaNode {
+  id: string;                    // MusicBrainz MBID
+  name: string;                  // Area name
+  type?: string;                 // Country, City, Region, etc.
+  parentArea?: string;           // Parent region
+  disambiguation?: string;
+}
+
+/**
+ * Event (concert/festival) search result
+ */
+export interface EventNode {
+  id: string;                    // MusicBrainz MBID
+  name: string;                  // Event name
+  type?: string;                 // Concert, Festival, etc.
+  date?: string;                 // Event date
+  place?: string;                // Venue name
+  area?: string;                 // City/region
+  disambiguation?: string;
+}
+
+/**
+ * Union type for all search results
+ */
+export type SearchResultNode =
+  | ArtistNode
+  | RecordingNode
+  | ReleaseNode
+  | ReleaseGroupNode
+  | WorkNode
+  | LabelNode
+  | PlaceNode
+  | AreaNode
+  | EventNode;
+
+// ============================================================================
 // Future Types (Phase 2+)
 // ============================================================================
 

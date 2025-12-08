@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useArtistSearch } from '@/lib/musicbrainz/hooks';
 import { Button } from '@/components/ui/button';
 import { AutocompleteInput } from '@/components/autocomplete-input';
@@ -26,12 +26,11 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
 
   const { data: results, error } = useArtistSearch(searchQuery);
 
-  // Reset expansion when search query changes (ref-based to avoid effect)
-  const prevSearchQueryRef = useRef(searchQuery);
-  if (prevSearchQueryRef.current !== searchQuery) {
-    prevSearchQueryRef.current = searchQuery;
-    if (showAllResults) setShowAllResults(false);
-  }
+  // Track query for show-all reset
+  const [lastQueryForShowAll, setLastQueryForShowAll] = useState('');
+
+  // Only show expanded results if they were expanded for the current query
+  const effectiveShowAllResults = showAllResults && lastQueryForShowAll === searchQuery;
 
   // Load recent searches and favorites from localStorage on mount
   useEffect(() => {
@@ -227,7 +226,7 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
       )}
 
       {results && results.length > 0 && (() => {
-        const displayedResults = showAllResults
+        const displayedResults = effectiveShowAllResults
           ? results
           : results.slice(0, INITIAL_RESULTS_DISPLAY);
         const hiddenCount = results.length - INITIAL_RESULTS_DISPLAY;
@@ -273,15 +272,18 @@ export function ArtistSearch({ onSelectArtist }: ArtistSearchProps) {
                 </div>
               ))}
             </div>
-            {hiddenCount > 0 && !showAllResults && (
+            {hiddenCount > 0 && !effectiveShowAllResults && (
               <button
-                onClick={() => setShowAllResults(true)}
+                onClick={() => {
+                  setShowAllResults(true);
+                  setLastQueryForShowAll(searchQuery);
+                }}
                 className="w-full py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
               >
                 Show {hiddenCount} more result{hiddenCount !== 1 ? 's' : ''}
               </button>
             )}
-            {showAllResults && results.length > INITIAL_RESULTS_DISPLAY && (
+            {effectiveShowAllResults && results.length > INITIAL_RESULTS_DISPLAY && (
               <button
                 onClick={() => setShowAllResults(false)}
                 className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
