@@ -1,8 +1,29 @@
 # InterChord - Project Progress
 
-> Last Updated: 2025-12-08
+> Last Updated: 2025-12-10
 
 ## Current Status: **Phase 3 - Extended Discovery (In Progress)**
+
+---
+
+## Planning Documents
+
+| Document | Purpose | Status |
+|----------|---------|--------|
+| **GRAPH_REFACTOR_PLAN.md** | Upgrade Cytoscape.js to live physics-based graph | Ready for implementation |
+| **NATIVE_APP_CONVERSION_PLAN.md** | Port InterChord to native macOS/iPadOS/iOS | Planning complete |
+| **APPLE_DEV_PERSONA.md** | System prompt for Apple platform development guidance | Reference document |
+
+### Graph Refactor Summary
+- **Phase 1:** Enhance existing Cytoscape.js with `cola` layout for live physics
+- **Phase 2 (contingency):** Migrate to `react-force-graph` if needed
+- Includes art/texture strategy for richer node visuals
+
+### Native App Summary
+- Swift + SwiftUI targeting macOS, iPadOS, iOS
+- iPhone as "companion" app (no graph, list-based)
+- SpriteKit for physics-based graph on iPad/Mac
+- Data priority: stonefrog-db01 → local cache → public API
 
 ---
 
@@ -311,13 +332,31 @@ When MusicBrainz announces schema changes:
 - [ ] Merge and deduplicate data from all sources
 - [ ] Store enriched profiles in local database
 
-### Future: Apple Music Integration
-- [ ] Apple Developer Program enrollment ($99/year)
+### Future: Apple Music Integration (Web)
+- [x] Apple Developer Program enrollment ($99/year) ✅ ENROLLED
 - [ ] MusicKit.js integration
 - [ ] User authentication flow
 - [ ] Library access and analysis
 - [ ] Playlist creation/sync
 - [ ] Playback integration
+
+### Future: Native App (macOS/iPadOS/iOS)
+See **NATIVE_APP_CONVERSION_PLAN.md** for full details.
+
+| Milestone | Description |
+|-----------|-------------|
+| **M1: Core Foundation** | Xcode project, Swift data models, MusicBrainzClient actor |
+| **M2: Basic UI** | Artist search, static detail view, live data |
+| **M3: Graph R&D Spike** | SpriteKit prototype for physics-based graph |
+| **M4: MVP Integration** | Full graph on iPad/Mac, interactions wired |
+| **M5: Polish & Deploy** | iPhone companion UI, App Store submission |
+
+**Key architectural decisions:**
+- Data priority: stonefrog-db01 → local cache → public API
+- SpriteKit for graph visualization (not WebView)
+- iPhone: list-based companion app (no graph)
+- ASWebAuthenticationSession for Spotify OAuth
+- Keychain for all secrets
 
 ### Future: Band Timeline Component (PARTIALLY IMPLEMENTED - See Phase 3)
 **Note:** Basic timeline with album visualizations has been implemented in Phase 3. Remaining items:
@@ -641,8 +680,11 @@ user_annotations
 
 **Key files:**
 - `CLAUDE.md` - Project specification and guidelines
-- `music-api-discovery.md` - API integration reference
 - `PROGRESS.md` - This file (keep updated!)
+- `GRAPH_REFACTOR_PLAN.md` - Live physics graph upgrade plan
+- `NATIVE_APP_CONVERSION_PLAN.md` - Native macOS/iPadOS/iOS port plan
+- `APPLE_DEV_PERSONA.md` - System prompt for Apple development guidance
+- `music-api-discovery.md` - API integration reference
 - `src/lib/musicbrainz/client.ts` - MusicBrainz API client with rate limiting
 - `src/lib/musicbrainz/hooks.ts` - TanStack Query hooks
 - `src/lib/musicbrainz/client.test.ts` - MusicBrainz client tests
