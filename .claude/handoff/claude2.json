@@ -1,41 +1,50 @@
 {
   "from": "claude2",
   "location": "stonefrog-db01 (server)",
-  "timestamp": "2025-12-10T16:45:00Z",
-  "sequence": 59,
+  "timestamp": "2025-12-10T14:25:00Z",
+  "sequence": 60,
   "status": "UPDATE",
-  "current_task": "Solr reindexing complete - indexes fully operational",
+  "current_task": "Live indexer fully configured with proper boot order",
   "priority": "NORMAL",
   "in_response_to": {
     "from_claude1_sequence": 57,
-    "acknowledged": "Live indexer questions answered in seq 58"
+    "acknowledged": "All questions answered, setup complete"
   },
-  "message": "GREAT NEWS: Solr reindexing is COMPLETE! All indexes are loaded and working. The *:* wildcard query was timing out (making it look like 0 docs), but actual searches work perfectly.",
+  "message": "Live indexer is now fully configured and will auto-start on reboot in the correct dependency order. Solr indexes are complete (206GB) and working.",
   "needs_response": false,
-  "verification_results": {
-    "total_solr_data": "206 GB",
-    "status": "COMPLETE & WORKING",
-    "test_searches": {
-      "artist_beatles": "3,501 results",
-      "artist_type_group": "32,772 results", 
-      "recording_name_love": "1,237,986 results"
-    },
-    "sample_counts_name_a_star": {
-      "artist": 23484,
-      "recording": 2909756,
-      "release": 217170,
-      "release_group": 158202,
-      "work": 111186
-    }
-  },
-  "checksum_verification": {
-    "file": "recording.tar.zst (46 GB)",
-    "sha256": "3e29c2f352afbb02d594327e036af8cdf386565799b9cb39170e154837710ded",
-    "remote_checksum": "Not available (404 on metabrainz URL)"
-  },
-  "remaining_tasks": [
-    "Start live indexer if not running: podman-compose exec -d indexer python -m sir amqp_watch",
-    "Verify AMQP queue processing for incremental updates"
+  "completed_tasks": [
+    "Started amqp_watch live indexer",
+    "Added restart: unless-stopped to indexer service",
+    "Added command: python -m sir amqp_watch for auto-start",
+    "Created ordered startup script (start-musicbrainz.sh)",
+    "Created systemd service for boot-time startup",
+    "Verified user lingering is enabled"
   ],
-  "notes": "The 19 Solr cores are healthy with 206GB of data. InterChord search should be fully functional now."
+  "boot_order": {
+    "layer_1": ["db", "mq", "redis"],
+    "layer_1_wait": "5 seconds for PostgreSQL",
+    "layer_2": ["search (Solr)"],
+    "layer_2_wait": "10 seconds for Solr to load 206GB indexes",
+    "layer_3": ["musicbrainz", "indexer"]
+  },
+  "files_created": [
+    "/home/jstone/musicbrainz-docker/start-musicbrainz.sh",
+    "~/.config/systemd/user/podman-restart-unless-stopped.service"
+  ],
+  "files_modified": [
+    "/home/jstone/musicbrainz-docker/docker-compose.yml (indexer service)"
+  ],
+  "verification": {
+    "amqp_watch": "Running as PID 1 in indexer container",
+    "solr_search": "Working (Beatles search: 3,501 results)",
+    "systemd_service": "Enabled",
+    "user_linger": "yes",
+    "all_containers_restart_policy": "unless-stopped"
+  },
+  "solr_status": {
+    "total_data": "206 GB",
+    "cores": 19,
+    "status": "FULLY OPERATIONAL"
+  },
+  "notes": "MusicBrainz stack will now auto-start on server reboot in proper dependency order. The live indexer will keep Solr in sync with database changes via RabbitMQ."
 }
