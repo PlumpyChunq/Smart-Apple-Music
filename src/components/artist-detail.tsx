@@ -199,9 +199,9 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
             {isFav ? '★' : '☆'}
           </button>
           <div>
-            <h1 className="text-xl font-bold">{artist.name}</h1>
-            {artist.disambiguation && (
-              <p className="text-sm text-gray-500">{artist.disambiguation}</p>
+            <h1 className="text-xl font-bold">{displayArtist.name}</h1>
+            {displayArtist.disambiguation && (
+              <p className="text-sm text-gray-500">{displayArtist.disambiguation}</p>
             )}
           </div>
         </div>
@@ -229,17 +229,17 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
 
         {/* Right: Badges */}
         <div className="flex items-center gap-2 text-sm shrink-0">
-          {artist.activeYears?.begin && (
+          {displayArtist.activeYears?.begin && (
             <span className="text-gray-500">
-              {artist.activeYears.begin}{artist.activeYears.end ? `–${artist.activeYears.end}` : '–present'}
+              {displayArtist.activeYears.begin}{displayArtist.activeYears.end ? `–${displayArtist.activeYears.end}` : '–present'}
             </span>
           )}
           <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
-            {artist.type}
+            {displayArtist.type}
           </span>
-          {artist.country && (
+          {displayArtist.country && (
             <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded-full">
-              {artist.country}
+              {displayArtist.country}
             </span>
           )}
         </div>

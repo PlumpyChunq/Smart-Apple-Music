@@ -1370,6 +1370,11 @@ export function ArtistGraph({
           {!contextMenu.isRoot && (
             <button
               onClick={() => {
+                // Auto-expand if not already loaded
+                if (!contextMenu.isLoaded && onNodeExpandRef.current) {
+                  onNodeExpandRef.current(contextMenu.nodeId);
+                }
+                // Focus on this artist
                 if (onFocusArtistRef.current) {
                   const artist: ArtistNode = {
                     id: contextMenu.nodeId,
