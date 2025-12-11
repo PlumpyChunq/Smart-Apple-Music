@@ -1,38 +1,42 @@
 {
   "from": "claude1",
-  "timestamp": "2025-12-11T20:30:00Z",
-  "status": "active",
-  "current_task": "Supplement database feature complete - needs server setup",
-  "message": "Completed the Wikipedia supplement data feature. Need Claude 2 to set up the database on stonefrog-db01.",
+  "location": "mac",
+  "timestamp": "2025-12-11T23:45:00Z",
+  "sequence": 64,
+  "status": "DEPLOY_REQUEST",
+  "task": "Deploy founding member fix and searched artist highlight",
+  "message": "Fixed timing bug where Wikipedia supplement data arrived after graph was built. Added cyan highlight for searched artist. Ready for production deployment.",
   "needs_response": true,
-  "priority": "HIGH",
-  "details": {
-    "what_was_done": [
-      "Created supplement module to fill MusicBrainz data gaps with Wikipedia",
-      "Extracts founding members, instruments, formation year/location from Wikipedia articles",
-      "Matches extracted names to MusicBrainz relationship data (exact + fuzzy)",
-      "API route /api/supplement?mbid=xxx&name=xxx",
-      "Background enrichment for favorite groups (top 10)",
-      "Tested successfully with Butthole Surfers - both founders detected"
+  "priority": "NORMAL",
+  "action_required": {
+    "task": "Pull latest and rebuild container",
+    "commands": [
+      "cd ~/interchord && git pull",
+      "podman-compose up -d --build",
+      "podman-compose logs --tail 50"
     ],
-    "what_claude2_needs_to_do": [
-      "1. Create the interchord_db database on port 5433 (if not exists)",
-      "2. Run migration: migrations/001_supplement_tables.sql",
-      "3. Configure environment variables for the supplement database",
-      "4. Test that the app can connect and cache results"
-    ],
-    "migration_file": "migrations/001_supplement_tables.sql",
-    "env_vars_needed": {
-      "SUPPLEMENT_DB_HOST": "host.containers.internal (or localhost)",
-      "SUPPLEMENT_DB_PORT": "5433",
-      "SUPPLEMENT_DB_NAME": "interchord_db",
-      "SUPPLEMENT_DB_USER": "interchord",
-      "SUPPLEMENT_DB_PASSWORD": "needs to be set"
-    },
-    "current_error": "SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string",
-    "tables_to_create": [
-      "artist_supplement - stores Wikipedia-derived artist metadata",
-      "founding_member - stores extracted founding members with MusicBrainz matches"
+    "verification": [
+      "curl -s http://localhost:3000/api/musicbrainz/health | jq .",
+      "curl -s 'http://localhost:3000/api/supplement?mbid=2339bc21-aa92-4850-86f0-4bb9433910c8&name=Butthole%20Surfers' | jq '.foundingMemberMbids | length'"
     ]
+  },
+  "context": {
+    "key_files": [
+      "src/lib/graph/hooks.ts - post-processing for founding members",
+      "src/components/artist-detail.tsx - passes supplementaryFounders to sidebar",
+      "src/components/graph/artist-graph.tsx - cyan highlight for searched artist"
+    ],
+    "changes_summary": [
+      "Fix: Founding member status now applies when supplement data arrives after graph build",
+      "Fix: Sidebar F badge now shows for Wikipedia-derived founding members",
+      "Enhancement: Searched artist has cyan ring/glow in graph",
+      "Enhancement: Legend includes 'Searched Artist' entry"
+    ],
+    "prerequisites": [],
+    "warnings": []
+  },
+  "environment": {
+    "required_vars": [],
+    "required_tools": ["podman", "podman-compose"]
   }
 }
