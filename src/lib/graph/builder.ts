@@ -162,7 +162,8 @@ export function buildGraphData(
       data: {
         ...a,
         loaded: false,
-        founding: foundingMap.get(a.id) || false,
+        // Check both: relationship-based founding status AND supplementary Wikipedia data
+        founding: foundingMap.get(a.id) || supplementaryFounders?.has(a.id) || false,
         instruments: instrumentsMap.get(a.id),
       },
     })),
