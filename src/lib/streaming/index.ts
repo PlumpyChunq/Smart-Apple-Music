@@ -10,6 +10,8 @@ export {
   getArtistStreamingUrl,
   getPrimaryMusicService,
   setPrimaryMusicService,
+  getUseNativeApp,
+  setUseNativeApp,
 } from './preferences';
 
 export { useStreamingPreference, useAlbumStreamingUrl } from './hooks';

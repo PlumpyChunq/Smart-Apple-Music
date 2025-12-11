@@ -17,7 +17,6 @@ import type {
 } from './types';
 import { WIKIDATA_PROPERTIES as P } from './types';
 
-const WIKIDATA_API = 'https://www.wikidata.org/w/api.php';
 const WIKIDATA_ENTITY_API = 'https://www.wikidata.org/wiki/Special:EntityData';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

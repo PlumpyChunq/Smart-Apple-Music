@@ -135,9 +135,39 @@ export function GraphFilters({
       ![...filters.relationshipTypes].every(t => defaults.relationshipTypes.has(t)) ||
       filters.yearRange !== null;
 
+    // Check if node type filters are modified
+    const nodeTypesModified = filters.nodeTypes.size !== 2;
+
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-1 flex-wrap text-[10px]">
+          {/* Node type filters - Person/Group */}
+          <button
+            onClick={() => handleNodeTypeToggle('person')}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${
+              filters.nodeTypes.has('person')
+                ? 'border-emerald-400 bg-emerald-100'
+                : 'border-transparent opacity-30 hover:opacity-60'
+            }`}
+            title={filters.nodeTypes.has('person') ? 'Hide people' : 'Show people'}
+          >
+            <span className="w-2 h-2 rounded-full flex-shrink-0 bg-emerald-500" />
+            <span className={filters.nodeTypes.has('person') ? 'text-emerald-700' : ''}>Person</span>
+          </button>
+          <button
+            onClick={() => handleNodeTypeToggle('group')}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${
+              filters.nodeTypes.has('group')
+                ? 'border-blue-400 bg-blue-100'
+                : 'border-transparent opacity-30 hover:opacity-60'
+            }`}
+            title={filters.nodeTypes.has('group') ? 'Hide groups/bands' : 'Show groups/bands'}
+          >
+            <span className="w-2 h-2 rounded-full flex-shrink-0 bg-blue-500" />
+            <span className={filters.nodeTypes.has('group') ? 'text-blue-700' : ''}>Group</span>
+          </button>
+          <span className="text-gray-200">|</span>
+          {/* Relationship type filters */}
           {visibleTypes.map((type) => {
             const config = RELATIONSHIP_CONFIG[type];
             const isActive = filters.relationshipTypes.has(type);
@@ -191,7 +221,7 @@ export function GraphFilters({
           >
             Clear
           </button>
-          {isModified && (
+          {(isModified || nodeTypesModified) && (
             <button
               onClick={handleReset}
               className="px-1.5 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"

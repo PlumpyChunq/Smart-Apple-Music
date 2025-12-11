@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   STORAGE_KEYS,
   getStorageItem,
@@ -99,21 +99,16 @@ interface UseGenrePreferencesResult {
  * Hook to manage genre preferences (order, empty genres, custom colors)
  */
 export function useGenrePreferences(): UseGenrePreferencesResult {
-  const [genreOrder, setGenreOrder] = useState<string[]>([]);
-  const [emptyGenres, setEmptyGenres] = useState<string[]>([]);
-  const [customGenreColors, setCustomGenreColors] = useState<Record<string, number>>({});
-
-  // Load preferences from localStorage
-  useEffect(() => {
-    const storedOrder = getStorageItem<string[]>(STORAGE_KEYS.GENRE_ORDER, []);
-    if (storedOrder) setGenreOrder(storedOrder);
-
-    const storedEmpty = getStorageItem<string[]>(STORAGE_KEYS.EMPTY_GENRES, []);
-    if (storedEmpty) setEmptyGenres(storedEmpty);
-
-    const storedColors = getStorageItem<Record<string, number>>(STORAGE_KEYS.CUSTOM_GENRE_COLORS, {});
-    if (storedColors) setCustomGenreColors(storedColors);
-  }, []);
+  // Initialize state directly from localStorage (lazy initializers run once on mount)
+  const [genreOrder, setGenreOrder] = useState<string[]>(
+    () => getStorageItem<string[]>(STORAGE_KEYS.GENRE_ORDER, []) ?? []
+  );
+  const [emptyGenres, setEmptyGenres] = useState<string[]>(
+    () => getStorageItem<string[]>(STORAGE_KEYS.EMPTY_GENRES, []) ?? []
+  );
+  const [customGenreColors, setCustomGenreColors] = useState<Record<string, number>>(
+    () => getStorageItem<Record<string, number>>(STORAGE_KEYS.CUSTOM_GENRE_COLORS, {}) ?? {}
+  );
 
   const saveGenreOrder = useCallback((order: string[]) => {
     setGenreOrder(order);

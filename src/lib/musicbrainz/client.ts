@@ -14,7 +14,6 @@
 
 import type {
   MusicBrainzArtist,
-  MusicBrainzArtistWithReleases,
   MusicBrainzReleaseGroup,
   MusicBrainzSearchResponse,
   ArtistNode,

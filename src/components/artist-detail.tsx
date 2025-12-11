@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useArtistRelationships } from '@/lib/musicbrainz/hooks';
 import { useEnrichedArtist } from '@/lib/apple-music';
 import { Button } from '@/components/ui/button';
@@ -39,10 +39,11 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   const [highlightedAlbum, setHighlightedAlbum] = useState<{ name: string; year: number; source: 'timeline' | 'sidebar' } | null>(null);
   const [timelineHeight, setTimelineHeight] = useState(TIMELINE_DEFAULT_HEIGHT);
 
-  // Check if artist is favorite on mount
-  useEffect(() => {
-    setIsFav(isFavorite(artist.id));
-  }, [artist.id]);
+  // Sync favorite state when artist changes (useSyncExternalStore pattern alternative)
+  const currentIsFav = isFavorite(artist.id);
+  if (currentIsFav !== isFav) {
+    setIsFav(currentIsFav);
+  }
 
   const handleToggleFavorite = useCallback(() => {
     if (isFav) {

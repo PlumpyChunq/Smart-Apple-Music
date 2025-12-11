@@ -14,23 +14,28 @@ import {
   type MusicService,
   getPrimaryMusicService,
   setPrimaryMusicService,
+  getUseNativeApp,
+  setUseNativeApp,
 } from '@/lib/streaming';
 
 export function SettingsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [primaryService, setPrimaryServiceState] = useState<MusicService>(null);
+  // Initialize state directly from localStorage (runs once on mount)
+  const [primaryService, setPrimaryServiceState] = useState<MusicService>(() => getPrimaryMusicService());
+  const [useNativeApp, setUseNativeAppState] = useState<boolean>(() => getUseNativeApp());
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Load primary service from localStorage on mount
-  useEffect(() => {
-    setPrimaryServiceState(getPrimaryMusicService());
-  }, []);
 
   const handleSetPrimaryService = useCallback((service: MusicService) => {
     setPrimaryServiceState(service);
     setPrimaryMusicService(service);
   }, []);
+
+  const handleToggleNativeApp = useCallback(() => {
+    const newValue = !useNativeApp;
+    setUseNativeAppState(newValue);
+    setUseNativeApp(newValue);
+  }, [useNativeApp]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -131,6 +136,32 @@ export function SettingsDropdown() {
                 {primaryService === 'apple-music' && <Check className="w-3.5 h-3.5" />}
                 Apple Music
               </button>
+            </div>
+
+            {/* Native App Toggle */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <span className="text-sm text-gray-700">Open in native app</span>
+                  <p className="text-xs text-gray-500">
+                    Opens links in Apple Music or Spotify app instead of browser
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggleNativeApp}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    useNativeApp ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                  role="switch"
+                  aria-checked={useNativeApp}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      useNativeApp ? 'translate-x-4' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </label>
             </div>
           </div>
 

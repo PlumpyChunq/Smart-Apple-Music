@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   // Streaming preferences
   STREAMING_PREFERENCE: 'interchord-streaming-preference',
   PRIMARY_SERVICE: 'interchord-primary-service',
+  USE_NATIVE_APP: 'interchord-use-native-app',
 
   // Search history
   RECENT_SEARCHES: 'interchord-recent-searches',

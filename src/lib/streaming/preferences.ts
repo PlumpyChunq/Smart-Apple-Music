@@ -23,8 +23,9 @@ export interface StreamingServiceInfo {
   id: StreamingService;
   name: string;
   icon: string;
-  getAlbumUrl: (artistName: string, albumName: string) => string;
-  getArtistUrl: (artistName: string) => string;
+  getAlbumUrl: (artistName: string, albumName: string, useNativeApp?: boolean) => string;
+  getArtistUrl: (artistName: string, useNativeApp?: boolean) => string;
+  hasNativeApp: boolean;
 }
 
 export const STREAMING_SERVICES: Record<StreamingService, StreamingServiceInfo> = {
@@ -32,24 +33,46 @@ export const STREAMING_SERVICES: Record<StreamingService, StreamingServiceInfo> 
     id: 'apple-music',
     name: 'Apple Music',
     icon: '🍎',
-    getAlbumUrl: (artist, album) =>
-      `https://music.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`)}`,
-    getArtistUrl: (artist) =>
-      `https://music.apple.com/search?term=${encodeURIComponent(artist)}`,
+    hasNativeApp: true,
+    getAlbumUrl: (artist, album, useNativeApp = false) => {
+      const searchTerm = encodeURIComponent(`${artist} ${album}`);
+      // music:// URL scheme opens the native Apple Music app
+      // Falls back to web if app not installed
+      return useNativeApp
+        ? `music://music.apple.com/search?term=${searchTerm}`
+        : `https://music.apple.com/search?term=${searchTerm}`;
+    },
+    getArtistUrl: (artist, useNativeApp = false) => {
+      const searchTerm = encodeURIComponent(artist);
+      return useNativeApp
+        ? `music://music.apple.com/search?term=${searchTerm}`
+        : `https://music.apple.com/search?term=${searchTerm}`;
+    },
   },
   'spotify': {
     id: 'spotify',
     name: 'Spotify',
     icon: '🟢',
-    getAlbumUrl: (artist, album) =>
-      `https://open.spotify.com/search/${encodeURIComponent(`${artist} ${album}`)}`,
-    getArtistUrl: (artist) =>
-      `https://open.spotify.com/search/${encodeURIComponent(artist)}`,
+    hasNativeApp: true,
+    getAlbumUrl: (artist, album, useNativeApp = false) => {
+      const searchTerm = encodeURIComponent(`${artist} ${album}`);
+      // spotify:// URL scheme opens the native Spotify app
+      return useNativeApp
+        ? `spotify://search/${searchTerm}`
+        : `https://open.spotify.com/search/${searchTerm}`;
+    },
+    getArtistUrl: (artist, useNativeApp = false) => {
+      const searchTerm = encodeURIComponent(artist);
+      return useNativeApp
+        ? `spotify://search/${searchTerm}`
+        : `https://open.spotify.com/search/${searchTerm}`;
+    },
   },
   'youtube-music': {
     id: 'youtube-music',
     name: 'YouTube Music',
     icon: '▶️',
+    hasNativeApp: false,
     getAlbumUrl: (artist, album) =>
       `https://music.youtube.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`,
     getArtistUrl: (artist) =>
@@ -59,6 +82,7 @@ export const STREAMING_SERVICES: Record<StreamingService, StreamingServiceInfo> 
     id: 'amazon-music',
     name: 'Amazon Music',
     icon: '📦',
+    hasNativeApp: false,
     getAlbumUrl: (artist, album) =>
       `https://music.amazon.com/search/${encodeURIComponent(`${artist} ${album}`)}`,
     getArtistUrl: (artist) =>
@@ -68,6 +92,7 @@ export const STREAMING_SERVICES: Record<StreamingService, StreamingServiceInfo> 
     id: 'tidal',
     name: 'Tidal',
     icon: '🌊',
+    hasNativeApp: false,
     getAlbumUrl: (artist, album) =>
       `https://listen.tidal.com/search?q=${encodeURIComponent(`${artist} ${album}`)}`,
     getArtistUrl: (artist) =>
@@ -107,11 +132,30 @@ export function getPreferredService(): StreamingServiceInfo {
 }
 
 /**
+ * Get whether to use native app for streaming links
+ */
+export function getUseNativeApp(): boolean {
+  if (!isClient()) return false;
+  const stored = getStorageString(STORAGE_KEYS.USE_NATIVE_APP);
+  return stored === 'true';
+}
+
+/**
+ * Set whether to use native app for streaming links
+ */
+export function setUseNativeApp(useNative: boolean): void {
+  if (!isClient()) return;
+  setStorageString(STORAGE_KEYS.USE_NATIVE_APP, useNative ? 'true' : 'false');
+  dispatchStorageEvent(STORAGE_EVENTS.STREAMING_PREFERENCE_CHANGED, useNative);
+}
+
+/**
  * Get album URL for the user's preferred streaming service
  */
 export function getAlbumStreamingUrl(artistName: string, albumName: string): string {
   const service = getPreferredService();
-  return service.getAlbumUrl(artistName, albumName);
+  const useNative = getUseNativeApp();
+  return service.getAlbumUrl(artistName, albumName, useNative);
 }
 
 /**
@@ -119,7 +163,8 @@ export function getAlbumStreamingUrl(artistName: string, albumName: string): str
  */
 export function getArtistStreamingUrl(artistName: string): string {
   const service = getPreferredService();
-  return service.getArtistUrl(artistName);
+  const useNative = getUseNativeApp();
+  return service.getArtistUrl(artistName, useNative);
 }
 
 // ============================================================================

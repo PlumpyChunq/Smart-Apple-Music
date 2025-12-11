@@ -1,7 +1,7 @@
 # Graph Refactor Plan (Web App)
 
 > **Scope:** Next.js web app only. For native app graph, see `NATIVE_APP_CONVERSION_PLAN.md`.
-> **Status:** Phase 1 In Progress | **Last Updated:** 2025-12-10
+> **Status:** Phase 1 Complete | **Last Updated:** 2025-12-10
 
 ## Goal
 
@@ -11,54 +11,42 @@ Upgrade the Cytoscape.js graph from static layout to live physics-based interact
 
 ## Phase 1: Live Physics with Cola Layout
 
-### Task 1.1: Enable Cola Layout
+### Task 1.1: Enable Cola Layout ✅
 
 **File:** `src/components/graph/artist-graph.tsx`
 
-- [ ] Import and register `cytoscape-cola` (already installed)
-- [ ] Replace current layout config with cola layout
-- [ ] Set `infinite: true` for continuous simulation
-- [ ] Set `animate: true` for smooth transitions
+- [x] Import and register `cytoscape-cola` (already installed)
+- [x] Replace current layout config with cola layout
+- [x] Set `infinite: true` for continuous simulation
+- [x] Set `animate: true` for smooth transitions
 
-**Code changes:**
-```typescript
-// Add to imports
-import cola from 'cytoscape-cola';
-cytoscape.use(cola);
+**Implementation:**
+- Changed `force` layout from COSE to Cola with `infinite: true`
+- Nodes continuously reposition around dragged nodes in real-time
 
-// Replace layout config
-const layout = cy.layout({
-  name: 'cola',
-  animate: true,
-  infinite: true,
-  fit: true,
-  padding: 30,
-  nodeSpacing: () => 20,
-  edgeLength: () => 150,
-});
-```
-
-### Task 1.2: Implement Drag Interaction
+### Task 1.2: Implement Drag Interaction ✅
 
 **File:** `src/components/graph/artist-graph.tsx`
 
-- [ ] Add `drag` event handler to lock node position
-- [ ] Add `free` event handler to unlock node
-- [ ] Test: dragging a node causes others to reflow
+- [x] Add `grab` event handler to lock node position
+- [x] Add `free` event handler to unlock node
+- [x] Add `drag` event for continuous interaction tracking
+- [x] Test: dragging a node causes others to reflow
 
-**Code changes:**
-```typescript
-cy.on('drag', 'node', (evt) => evt.target.lock());
-cy.on('free', 'node', (evt) => evt.target.unlock());
-```
+**Implementation:**
+- `grab` locks node so physics treats it as fixed constraint
+- `free` unlocks node so it can be moved by physics again
+- `drag` resets inactivity timer during movement
 
-### Task 1.3: Performance Safeguards
+### Task 1.3: Performance Safeguards ✅
 
 **File:** `src/components/graph/artist-graph.tsx`
 
-- [ ] Add inactivity timeout to pause simulation after 5s
-- [ ] Resume simulation on user interaction
-- [ ] Add node count warning at 200+ nodes
+- [x] Add inactivity timeout to pause simulation after 5s
+- [x] Resume simulation on user interaction (drag, pan, zoom)
+- [x] Add play/pause button for manual control
+- [x] Add visual indicator when physics is paused
+- [ ] Add node count warning at 200+ nodes (deferred)
 
 ---
 
@@ -122,10 +110,10 @@ cy.on('free', 'node', (evt) => evt.target.unlock());
 ## Progress Checklist
 
 ### Phase 1: Live Physics
-- [ ] 1.1 Cola layout enabled
-- [ ] 1.2 Drag interaction working
-- [ ] 1.3 Performance safeguards added
-- [ ] **Phase 1 Complete**
+- [x] 1.1 Cola layout enabled
+- [x] 1.2 Drag interaction working
+- [x] 1.3 Performance safeguards added
+- [x] **Phase 1 Complete** (2025-12-10)
 
 ### Phase 2: Visual Enhancements
 - [ ] 2.1 Node images rendering
@@ -141,7 +129,8 @@ cy.on('free', 'node', (evt) => evt.target.unlock());
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2025-12-10 | Phase 1 first (cola layout) | Lower risk than full rewrite |
-| TBD | Phase 2 start | After Phase 1 validated |
+| 2025-12-10 | Phase 1 complete | Cola layout with infinite simulation working, drag causes live reflow |
+| TBD | Phase 2 start | After Phase 1 validated in production |
 | TBD | React-force-graph evaluation | Only if cola doesn't meet needs |
 
 ---

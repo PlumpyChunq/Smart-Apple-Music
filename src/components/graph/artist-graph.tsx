@@ -285,6 +285,24 @@ export function ArtistGraph({
   const isDestroyedRef = useRef(false);
   const [isLayouting, setIsLayouting] = useState(false);
   const [currentLayout, setCurrentLayout] = useState<LayoutType>(layoutType);
+  const [isSimulationPaused, setIsSimulationPaused] = useState(false);
+  const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Context menu state for right-click filtering
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+    nodeName: string;
+    nodeType: 'person' | 'group';
+    isHidden: boolean;
+    isPinned: boolean;
+  } | null>(null);
+  const [hiddenNodes, setHiddenNodes] = useState<Set<string>>(new Set());
+  const [pinnedNodes, setPinnedNodes] = useState<Set<string>>(new Set());
+
+  // Performance: Pause simulation after inactivity to save CPU/battery
+  const INACTIVITY_TIMEOUT_MS = 5000;  // Pause after 5 seconds of no interaction
 
   /**
    * Callback refs pattern: Store callbacks in refs and update them on every render.
@@ -299,6 +317,11 @@ export function ArtistGraph({
   onNodeClickRef.current = onNodeClick;
   onNodeExpandRef.current = onNodeExpand;
   onNodeHoverRef.current = onNodeHover;
+
+  // Refs to store timer functions (avoids circular dependency with getLayoutOptions)
+  const pauseSimulationRef = useRef<() => void>(() => {});
+  const resumeSimulationRef = useRef<() => void>(() => {});
+  const resetInactivityTimerRef = useRef<() => void>(() => {});
 
   // Layout display names for the dropdown (kept for potential future UI)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -392,26 +415,39 @@ export function ArtistGraph({
 
     switch (effectiveLayout) {
       case 'force':
-        // COSE force-directed layout - physics simulation with node repulsion
+        // Cola force-directed layout - LIVE physics simulation
+        // Nodes continuously react to each other when dragged
+        // Locked nodes (via node.lock()) are treated as immovable anchors
         return {
-          name: 'cose',
+          name: 'cola',
           animate: true,
-          animationDuration: 1000,
-          animationEasing: 'ease-out',
-          fit: true,
+          infinite: true,  // KEY: Keeps simulation running forever
+          fit: false,  // Don't continuously fit - allows user zoom/pan
           padding: 30,
-          // Physics simulation settings
-          nodeRepulsion: () => isLarge ? 8000 : isMedium ? 12000 : 20000,
-          nodeOverlap: 20,
-          idealEdgeLength: () => isLarge ? 80 : isMedium ? 120 : 160,
-          edgeElasticity: () => isLarge ? 80 : 100,
-          nestingFactor: 1.2,
-          gravity: 0.25,
-          numIter: isLarge ? 500 : 1000,
-          initialTemp: 200,
-          coolingFactor: 0.95,
-          minTemp: 1.0,
-          randomize: true,
+          // Node spacing - how far apart nodes try to stay
+          nodeSpacing: () => isLarge ? 20 : isMedium ? 30 : 40,
+          // Edge length - ideal distance between connected nodes
+          edgeLength: () => isLarge ? 100 : isMedium ? 150 : 200,
+          // Prevent node overlap
+          avoidOverlap: true,
+          // How much nodes repel each other (higher = more spread)
+          edgeSymDiffLength: isLarge ? 10 : 20,
+          // Alignment constraint strength
+          alignment: undefined,
+          // Flow direction (undefined = no constraint)
+          flow: undefined,
+          // Unconstraint iterations (initial spreading)
+          unconstrIter: isLarge ? 10 : 20,
+          // User constraint iterations
+          userConstIter: 0,
+          // All constraint iterations
+          allConstIter: isLarge ? 10 : 20,
+          // Randomize initial positions for better spreading
+          randomize: false,
+          // Center the graph
+          centerGraph: true,
+          // Handle disconnected components
+          handleDisconnected: true,
         } as unknown as cytoscape.LayoutOptions;
 
       case 'hierarchical':
@@ -619,6 +655,16 @@ export function ArtistGraph({
       },
     });
     layoutRef.current.run();
+
+    // For infinite layouts (cola), fit to view after initial positioning
+    // This gives the layout time to spread nodes before fitting
+    if (options.name === 'cola') {
+      setTimeout(() => {
+        if (!isDestroyedRef.current && cyRef.current) {
+          cyRef.current.fit(undefined, 30);
+        }
+      }, 500);
+    }
   }, [getLayoutOptions]);
 
   // Fit to view
@@ -639,6 +685,67 @@ export function ArtistGraph({
       cyRef.current.center(root);
     }
   }, []);
+
+  // Pause the cola simulation to save CPU/battery
+  const pauseSimulation = useCallback(() => {
+    if (layoutRef.current && !isDestroyedRef.current) {
+      try {
+        layoutRef.current.stop();
+        setIsSimulationPaused(true);
+      } catch {
+        // Ignore errors if layout already stopped
+      }
+    }
+  }, []);
+
+  // Resume the cola simulation (only for force layout)
+  const resumeSimulation = useCallback(() => {
+    if (!cyRef.current || isDestroyedRef.current) return;
+
+    const cy = cyRef.current;
+    const effectiveLayout = getEffectiveLayout(currentLayout, networkDepth);
+
+    // Only resume if we're using the force (cola) layout
+    if (effectiveLayout !== 'force') return;
+
+    setIsSimulationPaused(false);
+
+    // Restart the infinite cola layout
+    if (layoutRef.current) {
+      try {
+        layoutRef.current.stop();
+      } catch {
+        // Ignore
+      }
+    }
+
+    const options = getLayoutOptions(cy.nodes().length, cy, currentLayout);
+    layoutRef.current = cy.layout(options);
+    layoutRef.current.run();
+  }, [currentLayout, networkDepth, getEffectiveLayout, getLayoutOptions]);
+
+  // Reset inactivity timer - call this on any user interaction
+  const resetInactivityTimer = useCallback(() => {
+    // Clear existing timeout
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+
+    // If simulation is paused, resume it
+    if (isSimulationPaused) {
+      resumeSimulationRef.current();
+    }
+
+    // Set new timeout to pause after inactivity
+    inactivityTimeoutRef.current = setTimeout(() => {
+      pauseSimulationRef.current();
+    }, INACTIVITY_TIMEOUT_MS);
+  }, [isSimulationPaused, INACTIVITY_TIMEOUT_MS]);
+
+  // Update refs so event handlers can access latest functions
+  pauseSimulationRef.current = pauseSimulation;
+  resumeSimulationRef.current = resumeSimulation;
+  resetInactivityTimerRef.current = resetInactivityTimer;
 
   // Initialize Cytoscape
   useEffect(() => {
@@ -741,10 +848,98 @@ export function ArtistGraph({
       }
     });
 
+    // Drag handlers for live physics
+    // Pinned nodes stay in place, unpinned nodes react to physics
+
+    // Unlock on mousedown BEFORE grab fires, so locked nodes can be re-dragged
+    cy.on('mousedown', 'node', (event) => {
+      if (isDestroyedRef.current) return;
+      const node = event.target;
+      if (node.locked()) {
+        node.unlock();
+      }
+    });
+
+    cy.on('grab', 'node', () => {
+      if (isDestroyedRef.current) return;
+
+      // Stop the layout while dragging
+      if (layoutRef.current) {
+        try { layoutRef.current.stop(); } catch { /* ignore */ }
+      }
+      setIsSimulationPaused(true);
+      resetInactivityTimerRef.current();
+    });
+
+    // While dragging, keep resetting the timer
+    cy.on('drag', 'node', () => {
+      if (isDestroyedRef.current) return;
+      resetInactivityTimerRef.current();
+    });
+
+    // When dragging ends, lock the node temporarily so it stays where placed
+    // Then restart layout - the locked node won't move, others will reorganize
+    cy.on('free', 'node', (event) => {
+      if (isDestroyedRef.current) return;
+      const node = event.target;
+
+      // Lock the node so it stays where user dropped it
+      // (User can right-click to explicitly unpin if they want it to float again)
+      node.lock();
+
+      // Restart the layout - locked nodes stay put, unlocked nodes reorganize
+      resumeSimulationRef.current();
+      resetInactivityTimerRef.current();
+    });
+
+    // Pan/zoom also counts as interaction
+    cy.on('pan zoom', () => {
+      if (isDestroyedRef.current) return;
+      resetInactivityTimerRef.current();
+    });
+
+    // Right-click context menu for individual node filtering
+    cy.on('cxttap', 'node', (event) => {
+      if (isDestroyedRef.current) return;
+      const node = event.target;
+      const nodeData = node.data();
+
+      // Don't allow hiding the root node
+      if (nodeData.root === 'true') return;
+
+      // Get screen position for the menu
+      const renderedPos = node.renderedPosition();
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (!containerRect) return;
+
+      setContextMenu({
+        x: renderedPos.x,
+        y: renderedPos.y,
+        nodeId: nodeData.id,
+        nodeName: nodeData.label || nodeData.name || 'Unknown',
+        nodeType: nodeData.type as 'person' | 'group',
+        isHidden: hiddenNodes.has(nodeData.id),
+        isPinned: node.locked(),
+      });
+    });
+
+    // Close context menu on any click
+    cy.on('tap', () => {
+      setContextMenu(null);
+    });
+
+    // While dragging, the locked node stays where user puts it,
+    // and cola simulation continuously repositions other nodes around it
+
     // Cleanup
     return () => {
       isDestroyedRef.current = true;
       resizeObserver.disconnect();
+      // Clear inactivity timeout
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+        inactivityTimeoutRef.current = null;
+      }
       if (layoutRef.current) {
         try {
           layoutRef.current.stop();
@@ -962,6 +1157,23 @@ export function ArtistGraph({
       }
     });
 
+    // Filter individually hidden nodes (right-click hidden)
+    cy.nodes().forEach(node => {
+      if (node.id() === rootId) return;
+      if (node.hasClass('filtered')) return;
+
+      if (hiddenNodes.has(node.id())) {
+        node.addClass('filtered');
+        node.addClass('manually-hidden');
+        node.style('display', 'none');
+        // Also hide connected edges
+        node.connectedEdges().forEach(edge => {
+          edge.addClass('filtered');
+          edge.style('display', 'none');
+        });
+      }
+    });
+
     // Hide orphan nodes (nodes with no visible edges, except root)
     cy.nodes().forEach(node => {
       if (node.id() === rootId) return;
@@ -973,7 +1185,7 @@ export function ArtistGraph({
         node.style('display', 'none');
       }
     });
-  }, [filters, graph.edges]);
+  }, [filters, graph.edges, hiddenNodes]);
 
   return (
     <div className={`relative ${className}`}>
@@ -985,14 +1197,24 @@ export function ArtistGraph({
       {/* Control buttons */}
       <div className="absolute top-4 left-4 flex flex-col gap-1">
         <button
-          onClick={() => cyRef.current?.zoom(cyRef.current.zoom() * 1.2)}
+          onClick={() => {
+            const cy = cyRef.current;
+            if (!cy) return;
+            const center = { x: cy.width() / 2, y: cy.height() / 2 };
+            cy.zoom({ level: cy.zoom() * 1.2, renderedPosition: center });
+          }}
           className="w-8 h-8 bg-white/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center text-gray-600"
           title="Zoom in"
         >
           +
         </button>
         <button
-          onClick={() => cyRef.current?.zoom(cyRef.current.zoom() / 1.2)}
+          onClick={() => {
+            const cy = cyRef.current;
+            if (!cy) return;
+            const center = { x: cy.width() / 2, y: cy.height() / 2 };
+            cy.zoom({ level: cy.zoom() / 1.2, renderedPosition: center });
+          }}
           className="w-8 h-8 bg-white/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center text-gray-600"
           title="Zoom out"
         >
@@ -1020,6 +1242,18 @@ export function ArtistGraph({
         >
           ◎
         </button>
+        {/* Play/Pause simulation button - only show for force layout */}
+        {getEffectiveLayout(currentLayout, networkDepth) === 'force' && (
+          <button
+            onClick={() => isSimulationPaused ? resumeSimulation() : pauseSimulation()}
+            className={`w-8 h-8 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center ${
+              isSimulationPaused ? 'bg-yellow-100/90 text-yellow-700' : 'bg-white/90 text-gray-600'
+            }`}
+            title={isSimulationPaused ? 'Resume physics simulation' : 'Pause physics simulation'}
+          >
+            {isSimulationPaused ? '▶' : '⏸'}
+          </button>
+        )}
       </div>
 
       {/* Legend */}
@@ -1058,13 +1292,161 @@ export function ArtistGraph({
       {/* Instructions */}
       <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-sm text-xs text-gray-600">
         <p>Click node to select • Double-click to expand</p>
-        <p>Drag nodes • Scroll to zoom • Drag to pan</p>
+        <p>Drag nodes to reposition • Others react in real-time</p>
+        <p>Right-click to hide • Scroll to zoom</p>
       </div>
 
       {/* Layout indicator */}
       {isLayouting && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg text-sm text-gray-600">
           <span className="animate-pulse">Organizing layout...</span>
+        </div>
+      )}
+
+      {/* Paused indicator */}
+      {isSimulationPaused && getEffectiveLayout(currentLayout, networkDepth) === 'force' && (
+        <div className="absolute bottom-4 right-4 bg-yellow-100/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-yellow-700">
+          Physics paused • Drag a node to resume
+        </div>
+      )}
+
+      {/* Hidden nodes indicator and restore button */}
+      {hiddenNodes.size > 0 && (
+        <div className="absolute top-4 right-[280px] bg-orange-100/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-orange-700 flex items-center gap-2">
+          <span>{hiddenNodes.size} hidden</span>
+          <button
+            onClick={() => setHiddenNodes(new Set())}
+            className="underline hover:text-orange-900"
+          >
+            Show all
+          </button>
+        </div>
+      )}
+
+      {/* Pinned nodes indicator and unpin all button */}
+      {pinnedNodes.size > 0 && (
+        <div className={`absolute top-4 bg-blue-100/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-blue-700 flex items-center gap-2 ${hiddenNodes.size > 0 ? 'right-[380px]' : 'right-[280px]'}`}>
+          <span>📍 {pinnedNodes.size} pinned</span>
+          <button
+            onClick={() => {
+              const cy = cyRef.current;
+              if (cy) {
+                pinnedNodes.forEach(nodeId => {
+                  const node = cy.$(`#${nodeId}`);
+                  if (node.length) node.unlock();
+                });
+              }
+              setPinnedNodes(new Set());
+            }}
+            className="underline hover:text-blue-900"
+          >
+            Unpin all
+          </button>
+        </div>
+      )}
+
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <div
+          className="absolute bg-white rounded-lg shadow-lg border py-1 min-w-[160px] z-50"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+            transform: 'translate(-50%, 10px)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1.5 text-xs text-gray-500 border-b">
+            {contextMenu.nodeName}
+          </div>
+          {/* Pin/Unpin option */}
+          <button
+            onClick={() => {
+              const cy = cyRef.current;
+              if (!cy) return;
+              const node = cy.$(`#${contextMenu.nodeId}`);
+              if (node.length) {
+                if (contextMenu.isPinned) {
+                  node.unlock();
+                  const newPinned = new Set(pinnedNodes);
+                  newPinned.delete(contextMenu.nodeId);
+                  setPinnedNodes(newPinned);
+                } else {
+                  node.lock();
+                  const newPinned = new Set(pinnedNodes);
+                  newPinned.add(contextMenu.nodeId);
+                  setPinnedNodes(newPinned);
+                }
+              }
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+          >
+            {contextMenu.isPinned ? (
+              <>
+                <span>📌</span>
+                <span>Unpin (allow movement)</span>
+              </>
+            ) : (
+              <>
+                <span>📍</span>
+                <span>Pin in place</span>
+              </>
+            )}
+          </button>
+          <div className="border-t my-1" />
+          {/* Hide/Show option */}
+          <button
+            onClick={() => {
+              const newHidden = new Set(hiddenNodes);
+              if (newHidden.has(contextMenu.nodeId)) {
+                newHidden.delete(contextMenu.nodeId);
+              } else {
+                newHidden.add(contextMenu.nodeId);
+              }
+              setHiddenNodes(newHidden);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+          >
+            {hiddenNodes.has(contextMenu.nodeId) ? (
+              <>
+                <span>👁️</span>
+                <span>Show this {contextMenu.nodeType}</span>
+              </>
+            ) : (
+              <>
+                <span>🚫</span>
+                <span>Hide this {contextMenu.nodeType}</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => {
+              // Hide all nodes of this type
+              const cy = cyRef.current;
+              if (!cy) return;
+              const newHidden = new Set(hiddenNodes);
+              cy.nodes().forEach(node => {
+                if (node.data('type') === contextMenu.nodeType && node.data('root') !== 'true') {
+                  newHidden.add(node.id());
+                }
+              });
+              setHiddenNodes(newHidden);
+              setContextMenu(null);
+            }}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+          >
+            <span>🚫</span>
+            <span>Hide all {contextMenu.nodeType === 'person' ? 'people' : 'groups'}</span>
+          </button>
+          <div className="border-t my-1" />
+          <button
+            onClick={() => setContextMenu(null)}
+            className="w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-100"
+          >
+            Cancel
+          </button>
         </div>
       )}
     </div>
