@@ -2,8 +2,16 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useEffect, useCallback, useState, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import type { WikidataArtistBio, WikidataPlace } from '@/lib/wikidata';
 import type { Marker as LeafletMarker } from 'leaflet';
+
+// Map tile URL (same for both modes, we use CSS filter for dark)
+const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
+// CSS filter for dark mode - inverts and adjusts for a softer dark appearance
+const DARK_MODE_FILTER = 'invert(0.9) hue-rotate(180deg) brightness(1.1) contrast(0.85)';
 
 // Dynamically import the map component to avoid SSR issues
 const MapContainer = dynamic(
@@ -206,9 +214,9 @@ function calculateBounds(locations: MapLocation[]): [[number, number], [number, 
   ];
 }
 
-function MapLegend({ isMultiArtist }: { isMultiArtist: boolean }) {
+function MapLegend({ isMultiArtist, isDark }: { isMultiArtist: boolean; isDark: boolean }) {
   return (
-    <div className="absolute bottom-2 left-2 z-[1000] bg-white/90 rounded px-2 py-1.5 text-xs shadow-sm">
+    <div className={`absolute bottom-2 left-2 z-[1000] rounded px-2 py-1.5 text-xs shadow-sm ${isDark ? 'bg-gray-800/90 text-gray-200' : 'bg-white/90 text-gray-800'}`}>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: MARKER_COLORS.birth }} />
@@ -224,7 +232,7 @@ function MapLegend({ isMultiArtist }: { isMultiArtist: boolean }) {
         </div>
       </div>
       {isMultiArtist && (
-        <div className="text-gray-500 mt-1 text-center">
+        <div className={`mt-1 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
           All band members
         </div>
       )}
@@ -239,6 +247,7 @@ interface MapContentProps {
   highlightedArtistName?: string | null;
   onHoverArtist?: (artistName: string | null) => void;
   isModal?: boolean;  // Enhanced popup behavior for modal view
+  isDark?: boolean;   // Dark mode support
 }
 
 /**
@@ -261,7 +270,7 @@ function formatDate(dateStr?: string): string | null {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function MapContent({ locations, showTravelPath, enableScrollZoom = false, highlightedArtistName, onHoverArtist, isModal = false }: MapContentProps) {
+function MapContent({ locations, showTravelPath, enableScrollZoom = false, highlightedArtistName, onHoverArtist, isModal = false, isDark = false }: MapContentProps) {
   const bounds = useMemo(() => calculateBounds(locations), [locations]);
   const markerRefs = useRef<Map<string, LeafletMarker>>(new Map());
   const closeTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -302,8 +311,9 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false, highl
       <FitBounds bounds={bounds} />
 
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution={TILE_ATTRIBUTION}
+        url={TILE_URL}
+        className={isDark ? 'map-tiles-dark' : ''}
       />
 
       {/* Draw travel path (single artist only) */}
@@ -459,6 +469,8 @@ function MapContent({ locations, showTravelPath, enableScrollZoom = false, highl
 
 export function ArtistMap({ bio, bios, className = '', showTravelPath, highlightedArtistName, onHoverArtist, bandInfo }: ArtistMapProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   // Determine if this is multi-artist mode
   const isMultiArtist = !!bios && bios.length > 0;
@@ -542,10 +554,10 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath, highlight
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossOrigin=""
         />
-        <MapContent locations={locations} showTravelPath={shouldShowPath} highlightedArtistName={highlightedArtistName} onHoverArtist={onHoverArtist} />
-        <MapLegend isMultiArtist={isMultiArtist} />
+        <MapContent locations={locations} showTravelPath={shouldShowPath} highlightedArtistName={highlightedArtistName} onHoverArtist={onHoverArtist} isDark={isDark} />
+        <MapLegend isMultiArtist={isMultiArtist} isDark={isDark} />
         {/* Hint for double-click */}
-        <div className="absolute top-1 right-1 z-[1000] bg-white/80 rounded px-1.5 py-0.5 text-[10px] text-gray-500 pointer-events-none">
+        <div className={`absolute top-1 right-1 z-[1000] rounded px-1.5 py-0.5 text-[10px] pointer-events-none ${isDark ? 'bg-gray-800/80 text-gray-400' : 'bg-white/80 text-gray-500'}`}>
           Double-click to expand
         </div>
       </div>
@@ -557,26 +569,26 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath, highlight
           onClick={handleCloseModal}
         >
           <div
-            className="relative bg-white rounded-lg w-full h-full max-w-[95vw] max-h-[90vh] overflow-hidden shadow-2xl"
+            className={`relative rounded-lg w-full h-full max-w-[95vw] max-h-[90vh] overflow-hidden shadow-2xl ${isDark ? 'bg-gray-900' : 'bg-white'}`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
             <button
               onClick={handleCloseModal}
-              className="absolute top-3 right-3 z-[10001] bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg transition-colors"
+              className={`absolute top-3 right-3 z-[10001] rounded-full p-2 shadow-lg transition-colors ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-100'}`}
               title="Close (Escape)"
             >
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-6 h-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 
             {/* Title */}
-            <div className="absolute top-3 left-3 z-[10001] bg-white/90 rounded px-3 py-1.5 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-800">
+            <div className={`absolute top-3 left-3 z-[10001] rounded px-3 py-1.5 shadow-sm ${isDark ? 'bg-gray-800/90' : 'bg-white/90'}`}>
+              <h3 className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>
                 {isMultiArtist ? 'Band Member Origins' : 'Artist Geography'}
               </h3>
-              <p className="text-xs text-gray-500">
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 {locations.length} location{locations.length !== 1 ? 's' : ''} • Scroll to zoom
               </p>
             </div>
@@ -589,17 +601,18 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath, highlight
                 showTravelPath={shouldShowPath}
                 enableScrollZoom={true}
                 isModal={true}
+                isDark={isDark}
               />
             </div>
 
             {/* Legend in modal */}
-            <MapLegend isMultiArtist={isMultiArtist} />
+            <MapLegend isMultiArtist={isMultiArtist} isDark={isDark} />
 
             {/* Band info panel (bottom right) */}
             {isMultiArtist && bandInfo && (
-              <div className="absolute bottom-3 right-3 z-[10001] bg-white/95 rounded-lg px-4 py-3 shadow-lg max-w-xs">
-                <h4 className="font-bold text-gray-800 mb-2">{bandInfo.name}</h4>
-                <div className="space-y-1 text-sm text-gray-600">
+              <div className={`absolute bottom-3 right-3 z-[10001] rounded-lg px-4 py-3 shadow-lg max-w-xs ${isDark ? 'bg-gray-800/95' : 'bg-white/95'}`}>
+                <h4 className={`font-bold mb-2 ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>{bandInfo.name}</h4>
+                <div className={`space-y-1 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                   {bandInfo.formedYear && (
                     <div>
                       <span className="font-medium">Formed:</span> {bandInfo.formedYear}
@@ -621,7 +634,7 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath, highlight
                     href={bandInfo.wikipediaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:text-blue-700 hover:underline block mt-2"
+                    className={`text-xs hover:underline block mt-2 ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-700'}`}
                   >
                     View band on Wikipedia →
                   </a>
@@ -629,14 +642,14 @@ export function ArtistMap({ bio, bios, className = '', showTravelPath, highlight
 
                 {/* Member list */}
                 {bios && bios.length > 0 && (
-                  <div className="mt-3 pt-2 border-t">
-                    <div className="text-xs font-medium text-gray-500 mb-1">Band Members:</div>
+                  <div className={`mt-3 pt-2 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <div className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Band Members:</div>
                     <div className="space-y-0.5">
                       {bios.map((memberBio) => (
-                        <div key={memberBio.wikidataId} className="text-xs text-gray-600 flex items-center gap-1">
+                        <div key={memberBio.wikidataId} className={`text-xs flex items-center gap-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                           <span>{memberBio.name}</span>
                           {memberBio.birthDate && (
-                            <span className="text-gray-400">
+                            <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>
                               ({memberBio.birthDate.split('-')[0]}–{memberBio.deathDate ? memberBio.deathDate.split('-')[0] : 'present'})
                             </span>
                           )}

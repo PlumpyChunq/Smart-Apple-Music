@@ -317,6 +317,8 @@ export function ArtistGraph({
   const [hiddenNodes, setHiddenNodes] = useState<Set<string>>(new Set());
   const [pinnedNodes, setPinnedNodes] = useState<Set<string>>(new Set());
   const [showInstructions, setShowInstructions] = useState(true);
+  const [showLegend, setShowLegend] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Performance: Pause simulation after inactivity to save CPU/battery
   const INACTIVITY_TIMEOUT_MS = 5000;  // Pause after 5 seconds of no interaction
@@ -766,6 +768,60 @@ export function ArtistGraph({
   resumeSimulationRef.current = resumeSimulation;
   resetInactivityTimerRef.current = resetInactivityTimer;
 
+  // Use browser's native Fullscreen API
+  const enterFullscreen = useCallback(() => {
+    const wrapper = document.getElementById('graph-fullscreen-wrapper');
+    if (wrapper && wrapper.requestFullscreen) {
+      wrapper.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        // Resize after entering fullscreen
+        setTimeout(() => {
+          if (cyRef.current && !isDestroyedRef.current) {
+            cyRef.current.resize();
+            cyRef.current.fit(undefined, 50);
+          }
+        }, 100);
+      }).catch(() => {
+        // Fallback: just set state without native fullscreen
+        setIsFullscreen(true);
+      });
+    }
+  }, []);
+
+  const exitFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+        setTimeout(() => {
+          if (cyRef.current && !isDestroyedRef.current) {
+            cyRef.current.resize();
+          }
+        }, 100);
+      }).catch(() => {
+        setIsFullscreen(false);
+      });
+    } else {
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  // Listen for fullscreen change events (e.g., user presses Escape)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+        setTimeout(() => {
+          if (cyRef.current && !isDestroyedRef.current) {
+            cyRef.current.resize();
+          }
+        }, 100);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [isFullscreen]);
+
   // Initialize Cytoscape
   useEffect(() => {
     if (!containerRef.current) return;
@@ -881,12 +937,6 @@ export function ArtistGraph({
 
     cy.on('grab', 'node', () => {
       if (isDestroyedRef.current) return;
-
-      // Stop the layout while dragging
-      if (layoutRef.current) {
-        try { layoutRef.current.stop(); } catch { /* ignore */ }
-      }
-      setIsSimulationPaused(true);
       resetInactivityTimerRef.current();
     });
 
@@ -896,8 +946,8 @@ export function ArtistGraph({
       resetInactivityTimerRef.current();
     });
 
-    // When dragging ends, lock the node temporarily so it stays where placed
-    // Then restart layout - the locked node won't move, others will reorganize
+    // When dragging ends, lock the node so it stays where placed
+    // Don't restart layout - just keep nodes where they are
     cy.on('free', 'node', (event) => {
       if (isDestroyedRef.current) return;
       const node = event.target;
@@ -906,8 +956,8 @@ export function ArtistGraph({
       // (User can right-click to explicitly unpin if they want it to float again)
       node.lock();
 
-      // Restart the layout - locked nodes stay put, unlocked nodes reorganize
-      resumeSimulationRef.current();
+      // Don't restart layout - it causes jarring repositioning
+      // User can click the re-layout button if they want to reorganize
       resetInactivityTimerRef.current();
     });
 
@@ -1211,15 +1261,20 @@ export function ArtistGraph({
     });
   }, [filters, graph.edges, hiddenNodes]);
 
-  return (
-    <div className={`relative ${className}`}>
-      <div
-        ref={containerRef}
-        className="w-full h-full min-h-[500px] bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
-      />
+  // Handle fullscreen mode - prevent body scroll (Escape handled by browser)
+  useEffect(() => {
+    if (!isFullscreen) return;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isFullscreen]);
 
+  // Common graph content that's shared between inline and fullscreen modes
+  const graphContent = (
+    <>
       {/* Control buttons */}
-      <div className="absolute top-4 left-4 flex flex-col gap-1">
+      <div className="absolute top-4 left-4 flex flex-col gap-1 z-10">
         <button
           onClick={() => {
             const cy = cyRef.current;
@@ -1278,87 +1333,82 @@ export function ArtistGraph({
             {isSimulationPaused ? '▶' : '⏸'}
           </button>
         )}
+        {/* Fullscreen toggle */}
+        <button
+          onClick={() => isFullscreen ? exitFullscreen() : enterFullscreen()}
+          className="w-8 h-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300"
+          title={isFullscreen ? "Exit fullscreen (Escape)" : "Fullscreen"}
+        >
+          {isFullscreen ? '⤓' : '⤢'}
+        </button>
       </div>
 
-      {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur p-3 rounded-lg shadow-sm text-xs space-y-1 max-h-[calc(100%-6rem)] overflow-y-auto text-gray-700 dark:text-gray-300">
-        <div className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Legend</div>
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full bg-blue-500 border-[3px] border-cyan-400 shadow-[0_0_0_3px_rgba(6,182,212,0.2)]" />
-          <span>Searched Artist</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full bg-blue-500" />
-          <span>Band/Group</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-emerald-500" />
-          <span>Person</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-emerald-500 border-2 border-violet-500" />
-          <span>Founding Member</span>
-        </div>
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-          <div className="w-4 h-0.5 bg-blue-300" />
-          <span>Member of</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-0.5 bg-emerald-400 border-dashed" style={{ borderTopWidth: 2, borderTopStyle: 'dashed' }} />
-          <span>Collaboration</span>
-        </div>
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-          <div className="w-3 h-3 rounded-full border-2 border-red-500 bg-red-50 dark:bg-red-900/30" />
-          <span>Selected</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 bg-red-500" style={{ height: 3 }} />
-          <span>Selected connection</span>
-        </div>
-      </div>
-
-      {/* Instructions - collapsible */}
-      <div className="absolute top-2 right-2">
-        {showInstructions ? (
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur px-2 py-1.5 rounded shadow-sm text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+      {/* Legend - collapsible */}
+      <div className="absolute bottom-4 left-4 z-10">
+        {showLegend ? (
+          <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur p-3 rounded-lg shadow-sm text-xs space-y-1 max-h-[calc(100%-6rem)] overflow-y-auto text-gray-700 dark:text-gray-300">
             <button
-              onClick={() => setShowInstructions(false)}
-              className="absolute -top-1 -right-1 w-4 h-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full text-gray-500 dark:text-gray-400 text-[10px] leading-none flex items-center justify-center"
-              title="Hide tips"
+              onClick={() => setShowLegend(false)}
+              className="absolute top-1.5 right-1.5 w-4 h-4 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded text-gray-600 dark:text-gray-300 text-xs leading-none flex items-center justify-center"
+              title="Hide legend"
             >
-              ×
+              −
             </button>
-            <p>Click to select • Right-click for options</p>
-            <p>Drag to move • Scroll to zoom</p>
+            <div className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Legend</div>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-blue-500 border-[3px] border-cyan-400 shadow-[0_0_0_3px_rgba(6,182,212,0.2)]" />
+              <span>Searched Artist</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-blue-500" />
+              <span>Band/Group</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span>Person</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500 border-2 border-violet-500" />
+              <span>Founding Member</span>
+            </div>
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+              <div className="w-4 h-0.5 bg-blue-300" />
+              <span>Member of</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-emerald-400 border-dashed" style={{ borderTopWidth: 2, borderTopStyle: 'dashed' }} />
+              <span>Collaboration</span>
+            </div>
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+              <div className="w-3 h-3 rounded-full border-2 border-red-500 bg-red-50 dark:bg-red-900/30" />
+              <span>Selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 bg-red-500" style={{ height: 3 }} />
+              <span>Selected connection</span>
+            </div>
           </div>
         ) : (
           <button
-            onClick={() => setShowInstructions(true)}
-            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur px-1.5 py-1 rounded shadow-sm text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-            title="Show tips"
+            onClick={() => setShowLegend(true)}
+            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur px-2 py-1 rounded shadow-sm text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+            title="Show legend"
           >
-            ?
+            Legend
           </button>
         )}
       </div>
 
       {/* Layout indicator */}
       {isLayouting && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-800/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg text-sm text-gray-600 dark:text-gray-300">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-800/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg text-sm text-gray-600 dark:text-gray-300 z-10">
           <span className="animate-pulse">Organizing layout...</span>
-        </div>
-      )}
-
-      {/* Paused indicator */}
-      {isSimulationPaused && getEffectiveLayout(currentLayout, networkDepth) === 'force' && (
-        <div className="absolute bottom-4 right-4 bg-yellow-100/90 dark:bg-yellow-900/50 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-yellow-700 dark:text-yellow-300">
-          Physics paused • Drag a node to resume
         </div>
       )}
 
       {/* Hidden nodes indicator and restore button */}
       {hiddenNodes.size > 0 && (
-        <div className="absolute top-4 right-[280px] bg-orange-100/90 dark:bg-orange-900/50 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-orange-700 dark:text-orange-300 flex items-center gap-2">
+        <div className="absolute top-4 right-[280px] bg-orange-100/90 dark:bg-orange-900/50 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-orange-700 dark:text-orange-300 flex items-center gap-2 z-10">
           <span>{hiddenNodes.size} hidden</span>
           <button
             onClick={() => setHiddenNodes(new Set())}
@@ -1371,7 +1421,7 @@ export function ArtistGraph({
 
       {/* Pinned nodes indicator and unpin all button */}
       {pinnedNodes.size > 0 && (
-        <div className={`absolute top-4 bg-blue-100/90 dark:bg-blue-900/50 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2 ${hiddenNodes.size > 0 ? 'right-[380px]' : 'right-[280px]'}`}>
+        <div className={`absolute top-4 bg-blue-100/90 dark:bg-blue-900/50 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2 z-10 ${hiddenNodes.size > 0 ? 'right-[380px]' : 'right-[280px]'}`}>
           <span>📍 {pinnedNodes.size} pinned</span>
           <button
             onClick={() => {
@@ -1427,12 +1477,12 @@ export function ArtistGraph({
               }}
               className="w-full px-3 py-2 text-left text-sm hover:bg-purple-50 dark:hover:bg-purple-900/30 flex items-center gap-2 text-purple-600 dark:text-purple-400 font-medium"
             >
-              <span>🎯</span>
-              <span>Focus on this {contextMenu.nodeType === 'group' ? 'band' : 'artist'}</span>
+              <span>👁</span>
+              <span>Focus on {contextMenu.nodeName}</span>
             </button>
           )}
-          {/* Expand connections option - only for unexpanded nodes */}
-          {!contextMenu.isLoaded && (
+          {/* Expand node connections */}
+          {(!contextMenu.isRoot || !contextMenu.isLoaded) && (
             <button
               onClick={() => {
                 if (onNodeExpandRef.current) {
@@ -1443,11 +1493,11 @@ export function ArtistGraph({
               className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium"
             >
               <span>🔗</span>
-              <span>Expand connections</span>
+              <span>{contextMenu.isLoaded ? 'Refresh connections' : 'Load connections'}</span>
             </button>
           )}
           {(!contextMenu.isRoot || !contextMenu.isLoaded) && <div className="border-t border-gray-200 dark:border-gray-700 my-1" />}
-          {/* Pin/Unpin option */}
+          {/* Pin/Unpin toggle */}
           <button
             onClick={() => {
               const cy = cyRef.current;
@@ -1456,64 +1506,46 @@ export function ArtistGraph({
               if (node.length) {
                 if (contextMenu.isPinned) {
                   node.unlock();
-                  const newPinned = new Set(pinnedNodes);
-                  newPinned.delete(contextMenu.nodeId);
-                  setPinnedNodes(newPinned);
+                  setPinnedNodes(prev => {
+                    const next = new Set(prev);
+                    next.delete(contextMenu.nodeId);
+                    return next;
+                  });
                 } else {
                   node.lock();
-                  const newPinned = new Set(pinnedNodes);
-                  newPinned.add(contextMenu.nodeId);
-                  setPinnedNodes(newPinned);
+                  setPinnedNodes(prev => new Set(prev).add(contextMenu.nodeId));
                 }
               }
               setContextMenu(null);
             }}
             className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
           >
-            {contextMenu.isPinned ? (
-              <>
-                <span>📌</span>
-                <span>Unpin (allow movement)</span>
-              </>
-            ) : (
-              <>
-                <span>📍</span>
-                <span>Pin in place</span>
-              </>
-            )}
+            <span>{contextMenu.isPinned ? '📍' : '📌'}</span>
+            <span>{contextMenu.isPinned ? 'Unpin node' : 'Pin node in place'}</span>
           </button>
-          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-          {/* Hide/Show option - not available for root node */}
+          {/* Only show hide/show options for non-root nodes */}
           {!contextMenu.isRoot && (
             <>
               <button
                 onClick={() => {
-                  const newHidden = new Set(hiddenNodes);
-                  if (newHidden.has(contextMenu.nodeId)) {
-                    newHidden.delete(contextMenu.nodeId);
+                  if (contextMenu.isHidden) {
+                    setHiddenNodes(prev => {
+                      const next = new Set(prev);
+                      next.delete(contextMenu.nodeId);
+                      return next;
+                    });
                   } else {
-                    newHidden.add(contextMenu.nodeId);
+                    setHiddenNodes(prev => new Set(prev).add(contextMenu.nodeId));
                   }
-                  setHiddenNodes(newHidden);
                   setContextMenu(null);
                 }}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
               >
-                {hiddenNodes.has(contextMenu.nodeId) ? (
-                  <>
-                    <span>👁️</span>
-                    <span>Show this {contextMenu.nodeType}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>🚫</span>
-                    <span>Hide this {contextMenu.nodeType}</span>
-                  </>
-                )}
+                <span>{contextMenu.isHidden ? '👁' : '🙈'}</span>
+                <span>{contextMenu.isHidden ? 'Show node' : 'Hide node'}</span>
               </button>
               <button
                 onClick={() => {
-                  // Hide all nodes of this type
                   const cy = cyRef.current;
                   if (!cy) return;
                   const newHidden = new Set(hiddenNodes);
@@ -1539,6 +1571,70 @@ export function ArtistGraph({
           >
             Cancel
           </button>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <div
+      id="graph-fullscreen-wrapper"
+      className={`relative ${className} ${isFullscreen ? 'bg-gray-900' : ''}`}
+      onDoubleClick={(e) => {
+        // Only trigger fullscreen on double-click if not clicking on a button or control
+        if (!(e.target as HTMLElement).closest('button')) {
+          if (isFullscreen) {
+            exitFullscreen();
+          } else {
+            enterFullscreen();
+          }
+        }
+      }}
+      title={isFullscreen ? undefined : "Double-click to expand"}
+    >
+      {/* Cytoscape container */}
+      <div
+        ref={containerRef}
+        className={`w-full bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 ${
+          isFullscreen ? 'h-screen' : 'h-full min-h-[500px]'
+        }`}
+      />
+
+      {/* Graph controls and overlays */}
+      {graphContent}
+
+      {/* Instructions - collapsible (only when not fullscreen) */}
+      {!isFullscreen && (
+        <div className="absolute top-2 right-2 z-10">
+          {showInstructions ? (
+            <div className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur pl-2 pr-7 py-1.5 rounded shadow-sm text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+              <button
+                onClick={() => setShowInstructions(false)}
+                className="absolute top-1/2 -translate-y-1/2 right-1.5 w-4 h-4 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded text-gray-600 dark:text-gray-300 text-xs leading-none flex items-center justify-center"
+                title="Hide tips"
+              >
+                −
+              </button>
+              <p>Click to select • Right-click for options</p>
+              <p>Drag to move • Double-click to expand</p>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowInstructions(true)}
+              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur px-1.5 py-1 rounded shadow-sm text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+              title="Show tips"
+            >
+              ?
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Fullscreen title overlay */}
+      {isFullscreen && (
+        <div className="absolute top-3 left-14 z-10 bg-gray-800/90 rounded px-3 py-1.5 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-100">Artist Relationships</h3>
+          <p className="text-xs text-gray-400">Scroll to zoom • Drag nodes • Press Escape to exit</p>
         </div>
       )}
     </div>
