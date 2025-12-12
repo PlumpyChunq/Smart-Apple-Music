@@ -27,14 +27,14 @@ export const TIMELINE_MAX_HEIGHT = 400;
 export const TIMELINE_DEFAULT_HEIGHT = 112;
 
 const EVENT_COLORS: Record<TimelineEventType, { bg: string; border: string; text: string }> = {
-  album: { bg: 'bg-purple-100', border: 'border-purple-400', text: 'text-purple-700' },
-  concert: { bg: 'bg-blue-100', border: 'border-blue-400', text: 'text-blue-700' },
-  birth: { bg: 'bg-teal-100', border: 'border-teal-400', text: 'text-teal-700' },
-  formation: { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700' },
-  disbanded: { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-700' },
-  member_join: { bg: 'bg-emerald-100', border: 'border-emerald-400', text: 'text-emerald-700' },
-  member_leave: { bg: 'bg-orange-100', border: 'border-orange-400', text: 'text-orange-700' },
-  member_death: { bg: 'bg-gray-200', border: 'border-gray-500', text: 'text-gray-700' },
+  album: { bg: 'bg-purple-100 dark:bg-purple-900/50', border: 'border-purple-400 dark:border-purple-500', text: 'text-purple-700 dark:text-purple-300' },
+  concert: { bg: 'bg-blue-100 dark:bg-blue-900/50', border: 'border-blue-400 dark:border-blue-500', text: 'text-blue-700 dark:text-blue-300' },
+  birth: { bg: 'bg-teal-100 dark:bg-teal-900/50', border: 'border-teal-400 dark:border-teal-500', text: 'text-teal-700 dark:text-teal-300' },
+  formation: { bg: 'bg-green-100 dark:bg-green-900/50', border: 'border-green-500 dark:border-green-400', text: 'text-green-700 dark:text-green-300' },
+  disbanded: { bg: 'bg-red-100 dark:bg-red-900/50', border: 'border-red-400 dark:border-red-500', text: 'text-red-700 dark:text-red-300' },
+  member_join: { bg: 'bg-emerald-100 dark:bg-emerald-900/50', border: 'border-emerald-400 dark:border-emerald-500', text: 'text-emerald-700 dark:text-emerald-300' },
+  member_leave: { bg: 'bg-orange-100 dark:bg-orange-900/50', border: 'border-orange-400 dark:border-orange-500', text: 'text-orange-700 dark:text-orange-300' },
+  member_death: { bg: 'bg-gray-200 dark:bg-gray-700', border: 'border-gray-500 dark:border-gray-400', text: 'text-gray-700 dark:text-gray-300' },
 };
 
 const EVENT_ICONS: Record<TimelineEventType, string> = {
@@ -207,39 +207,39 @@ export function ArtistTimeline({
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-lg z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 shadow-lg z-40">
         {/* Resize handle */}
         <div
           onMouseDown={handleMouseDown}
           className={`absolute top-0 left-0 right-0 h-2 cursor-ns-resize group flex items-center justify-center
-            ${isDragging ? 'bg-blue-100' : 'hover:bg-gray-100'} transition-colors`}
+            ${isDragging ? 'bg-blue-100 dark:bg-blue-900/50' : 'hover:bg-gray-100 dark:hover:bg-gray-800'} transition-colors`}
         >
           {/* Visual indicator - 3 horizontal lines */}
           <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="w-8 h-0.5 bg-gray-400 rounded-full" />
-            <div className="w-8 h-0.5 bg-gray-400 rounded-full" />
+            <div className="w-8 h-0.5 bg-gray-400 dark:bg-gray-500 rounded-full" />
+            <div className="w-8 h-0.5 bg-gray-400 dark:bg-gray-500 rounded-full" />
           </div>
         </div>
 
         <div style={{ height: `${height}px` }} className="pt-2">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <div className="flex items-center gap-2 text-gray-500">
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                 <LoadingSpinner className="w-4 h-4" />
                 <span className="text-sm">Loading timeline...</span>
               </div>
             </div>
           ) : events.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm">
               No timeline events available
             </div>
           ) : (
             <div className="h-full flex flex-col">
               {/* Timeline header */}
-              <div className="px-4 py-1 border-b border-gray-100 flex items-center gap-4 text-xs text-gray-500 shrink-0">
+              <div className="px-4 py-1 border-b border-gray-100 dark:border-gray-800 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 shrink-0">
                 <span className="font-medium">Timeline</span>
                 <span>{yearRange?.min} - {yearRange?.max}</span>
-                <span className="text-gray-300">|</span>
+                <span className="text-gray-300 dark:text-gray-600">|</span>
                 <span>{events.length} events</span>
                 <div className="flex items-center gap-3 ml-auto">
                   <LegendItem type="album" />
@@ -279,7 +279,7 @@ export function ArtistTimeline({
 
               {/* Fixed year axis at bottom - synced scroll */}
               <div
-                className="shrink-0 border-t border-gray-100 overflow-x-auto bg-white"
+                className="shrink-0 border-t border-gray-100 dark:border-gray-800 overflow-x-auto bg-white dark:bg-gray-900"
                 style={{ scrollbarWidth: 'thin' }}
                 onScroll={(e) => {
                   if (scrollContainerRef.current) {
@@ -313,10 +313,10 @@ export function ArtistTimeline({
                         )}
                         <span className={`text-xs ${
                           isBoundary
-                            ? 'font-bold text-blue-600'
+                            ? 'font-bold text-blue-600 dark:text-blue-400'
                             : isInFilterRange
-                              ? hasEvents ? 'font-medium text-gray-700' : 'font-medium text-gray-300'
-                              : 'font-medium text-gray-400'
+                              ? hasEvents ? 'font-medium text-gray-700 dark:text-gray-300' : 'font-medium text-gray-300 dark:text-gray-600'
+                              : 'font-medium text-gray-400 dark:text-gray-500'
                         }`}>
                           {year}
                         </span>
@@ -370,7 +370,7 @@ function EventColumn({ year, events, onEventClick, onEventHover, onHoverAlbum, h
         <div className="absolute right-0 top-0 bottom-0 w-px bg-blue-400/50 z-20" />
       )}
       {/* Track line */}
-      <div className={`absolute left-0 right-0 h-0.5 bottom-0 ${isInFilterRange ? 'bg-gray-200' : 'bg-gray-300'}`} />
+      <div className={`absolute left-0 right-0 h-0.5 bottom-0 ${isInFilterRange ? 'bg-gray-200 dark:bg-gray-700' : 'bg-gray-300 dark:bg-gray-600'}`} />
 
       {/* Events */}
       {hasEvents ? (
@@ -398,11 +398,11 @@ function EventColumn({ year, events, onEventClick, onEventHover, onHoverAlbum, h
             );
           })}
           {events.length > 5 && (
-            <span className="text-[10px] text-gray-400 ml-1">+{events.length - 5}</span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">+{events.length - 5}</span>
           )}
         </div>
       ) : (
-        <div className="w-1.5 h-1.5 rounded-full bg-gray-200 z-10 mb-[-3px]" />
+        <div className="w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 z-10 mb-[-3px]" />
       )}
     </div>
   );
@@ -511,8 +511,8 @@ function EventDot({ event, onClick, onHover, onHoverAlbum, isHighlighted }: Even
           >
             <span className={`text-[10px] font-medium whitespace-nowrap transition-colors duration-150
               ${isHighlighted
-                ? 'text-yellow-600 bg-yellow-100 px-1 py-0.5 rounded drop-shadow-lg'
-                : 'text-purple-600 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)]'}`}>
+                ? 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/50 px-1 py-0.5 rounded drop-shadow-lg'
+                : 'text-purple-600 dark:text-purple-400 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]'}`}>
               {event.title}
             </span>
           </div>
@@ -530,10 +530,10 @@ function EventDot({ event, onClick, onHover, onHoverAlbum, isHighlighted }: Even
               transform: 'translate(-50%, -100%)',
             }}
           >
-            <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl whitespace-nowrap">
+            <div className="bg-gray-900 dark:bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-xl whitespace-nowrap border border-gray-700 dark:border-gray-600">
               <div className="font-semibold">{event.title}</div>
-              {event.subtitle && <div className="text-gray-300 text-[11px] mt-0.5">{event.subtitle}</div>}
-              <div className="text-gray-400 text-[11px] mt-0.5">{event.artistName} &bull; {event.year}</div>
+              {event.subtitle && <div className="text-gray-300 dark:text-gray-400 text-[11px] mt-0.5">{event.subtitle}</div>}
+              <div className="text-gray-400 dark:text-gray-500 text-[11px] mt-0.5">{event.artistName} &bull; {event.year}</div>
             </div>
           </div>
         </TooltipPortal>

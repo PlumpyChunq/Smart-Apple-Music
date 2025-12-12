@@ -1204,7 +1204,7 @@ export function ArtistGraph({
     <div className={`relative ${className}`}>
       <div
         ref={containerRef}
-        className="w-full h-full min-h-[500px] bg-gray-50 rounded-lg border"
+        className="w-full h-full min-h-[500px] bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
       />
 
       {/* Control buttons */}
@@ -1216,7 +1216,7 @@ export function ArtistGraph({
             const center = { x: cy.width() / 2, y: cy.height() / 2 };
             cy.zoom({ level: cy.zoom() * 1.2, renderedPosition: center });
           }}
-          className="w-8 h-8 bg-white/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center text-gray-600"
+          className="w-8 h-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300"
           title="Zoom in"
         >
           +
@@ -1228,14 +1228,14 @@ export function ArtistGraph({
             const center = { x: cy.width() / 2, y: cy.height() / 2 };
             cy.zoom({ level: cy.zoom() / 1.2, renderedPosition: center });
           }}
-          className="w-8 h-8 bg-white/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center text-gray-600"
+          className="w-8 h-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300"
           title="Zoom out"
         >
           −
         </button>
         <button
           onClick={fitToView}
-          className="w-8 h-8 bg-white/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center text-gray-600"
+          className="w-8 h-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300"
           title="Fit to view"
         >
           ⛶
@@ -1243,14 +1243,14 @@ export function ArtistGraph({
         <button
           onClick={() => runLayout()}
           disabled={isLayouting}
-          className="w-8 h-8 bg-white/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center text-gray-600 disabled:opacity-50"
+          className="w-8 h-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 disabled:opacity-50"
           title="Re-layout graph (spoke pattern)"
         >
           ↻
         </button>
         <button
           onClick={centerOnRoot}
-          className="w-8 h-8 bg-white/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center text-gray-600"
+          className="w-8 h-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300"
           title="Center on main artist"
         >
           ◎
@@ -1259,8 +1259,8 @@ export function ArtistGraph({
         {getEffectiveLayout(currentLayout, networkDepth) === 'force' && (
           <button
             onClick={() => isSimulationPaused ? resumeSimulation() : pauseSimulation()}
-            className={`w-8 h-8 backdrop-blur rounded shadow-sm hover:bg-gray-100 flex items-center justify-center ${
-              isSimulationPaused ? 'bg-yellow-100/90 text-yellow-700' : 'bg-white/90 text-gray-600'
+            className={`w-8 h-8 backdrop-blur rounded shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center ${
+              isSimulationPaused ? 'bg-yellow-100/90 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300' : 'bg-white/90 dark:bg-gray-800/90 text-gray-600 dark:text-gray-300'
             }`}
             title={isSimulationPaused ? 'Resume physics simulation' : 'Pause physics simulation'}
           >
@@ -1270,8 +1270,8 @@ export function ArtistGraph({
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur p-3 rounded-lg shadow-sm text-xs space-y-1 max-h-[calc(100%-6rem)] overflow-y-auto">
-        <div className="font-semibold mb-2">Legend</div>
+      <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur p-3 rounded-lg shadow-sm text-xs space-y-1 max-h-[calc(100%-6rem)] overflow-y-auto text-gray-700 dark:text-gray-300">
+        <div className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Legend</div>
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 rounded-full bg-blue-500 border-[3px] border-cyan-400 shadow-[0_0_0_3px_rgba(6,182,212,0.2)]" />
           <span>Searched Artist</span>
@@ -1288,7 +1288,7 @@ export function ArtistGraph({
           <div className="w-3 h-3 rounded-full bg-emerald-500 border-2 border-violet-500" />
           <span>Founding Member</span>
         </div>
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
           <div className="w-4 h-0.5 bg-blue-300" />
           <span>Member of</span>
         </div>
@@ -1296,8 +1296,8 @@ export function ArtistGraph({
           <div className="w-4 h-0.5 bg-emerald-400 border-dashed" style={{ borderTopWidth: 2, borderTopStyle: 'dashed' }} />
           <span>Collaboration</span>
         </div>
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t">
-          <div className="w-3 h-3 rounded-full border-2 border-red-500 bg-red-50" />
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+          <div className="w-3 h-3 rounded-full border-2 border-red-500 bg-red-50 dark:bg-red-900/30" />
           <span>Selected</span>
         </div>
         <div className="flex items-center gap-2">
@@ -1309,10 +1309,10 @@ export function ArtistGraph({
       {/* Instructions - collapsible */}
       <div className="absolute top-2 right-2">
         {showInstructions ? (
-          <div className="bg-white/80 backdrop-blur px-2 py-1.5 rounded shadow-sm text-[10px] text-gray-500 leading-tight">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur px-2 py-1.5 rounded shadow-sm text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
             <button
               onClick={() => setShowInstructions(false)}
-              className="absolute -top-1 -right-1 w-4 h-4 bg-gray-200 hover:bg-gray-300 rounded-full text-gray-500 text-[10px] leading-none flex items-center justify-center"
+              className="absolute -top-1 -right-1 w-4 h-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full text-gray-500 dark:text-gray-400 text-[10px] leading-none flex items-center justify-center"
               title="Hide tips"
             >
               ×
@@ -1323,7 +1323,7 @@ export function ArtistGraph({
         ) : (
           <button
             onClick={() => setShowInstructions(true)}
-            className="bg-white/80 backdrop-blur px-1.5 py-1 rounded shadow-sm text-[10px] text-gray-400 hover:text-gray-600"
+            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur px-1.5 py-1 rounded shadow-sm text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
             title="Show tips"
           >
             ?
@@ -1333,25 +1333,25 @@ export function ArtistGraph({
 
       {/* Layout indicator */}
       {isLayouting && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg text-sm text-gray-600">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 dark:bg-gray-800/90 backdrop-blur px-4 py-2 rounded-lg shadow-lg text-sm text-gray-600 dark:text-gray-300">
           <span className="animate-pulse">Organizing layout...</span>
         </div>
       )}
 
       {/* Paused indicator */}
       {isSimulationPaused && getEffectiveLayout(currentLayout, networkDepth) === 'force' && (
-        <div className="absolute bottom-4 right-4 bg-yellow-100/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-yellow-700">
+        <div className="absolute bottom-4 right-4 bg-yellow-100/90 dark:bg-yellow-900/50 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-yellow-700 dark:text-yellow-300">
           Physics paused • Drag a node to resume
         </div>
       )}
 
       {/* Hidden nodes indicator and restore button */}
       {hiddenNodes.size > 0 && (
-        <div className="absolute top-4 right-[280px] bg-orange-100/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-orange-700 flex items-center gap-2">
+        <div className="absolute top-4 right-[280px] bg-orange-100/90 dark:bg-orange-900/50 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-orange-700 dark:text-orange-300 flex items-center gap-2">
           <span>{hiddenNodes.size} hidden</span>
           <button
             onClick={() => setHiddenNodes(new Set())}
-            className="underline hover:text-orange-900"
+            className="underline hover:text-orange-900 dark:hover:text-orange-100"
           >
             Show all
           </button>
@@ -1360,7 +1360,7 @@ export function ArtistGraph({
 
       {/* Pinned nodes indicator and unpin all button */}
       {pinnedNodes.size > 0 && (
-        <div className={`absolute top-4 bg-blue-100/90 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-blue-700 flex items-center gap-2 ${hiddenNodes.size > 0 ? 'right-[380px]' : 'right-[280px]'}`}>
+        <div className={`absolute top-4 bg-blue-100/90 dark:bg-blue-900/50 backdrop-blur px-3 py-1.5 rounded-lg shadow-sm text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2 ${hiddenNodes.size > 0 ? 'right-[380px]' : 'right-[280px]'}`}>
           <span>📍 {pinnedNodes.size} pinned</span>
           <button
             onClick={() => {
@@ -1373,7 +1373,7 @@ export function ArtistGraph({
               }
               setPinnedNodes(new Set());
             }}
-            className="underline hover:text-blue-900"
+            className="underline hover:text-blue-900 dark:hover:text-blue-100"
           >
             Unpin all
           </button>
@@ -1383,7 +1383,7 @@ export function ArtistGraph({
       {/* Right-click context menu */}
       {contextMenu && (
         <div
-          className="absolute bg-white rounded-lg shadow-lg border py-1 min-w-[160px] z-50"
+          className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px] z-50"
           style={{
             left: contextMenu.x,
             top: contextMenu.y,
@@ -1391,7 +1391,7 @@ export function ArtistGraph({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-3 py-1.5 text-xs text-gray-500 border-b">
+          <div className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
             {contextMenu.nodeName}
           </div>
           {/* Focus on this artist - switch header/albums/timeline to this artist */}
@@ -1414,7 +1414,7 @@ export function ArtistGraph({
                 }
                 setContextMenu(null);
               }}
-              className="w-full px-3 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2 text-purple-600 font-medium"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-purple-50 dark:hover:bg-purple-900/30 flex items-center gap-2 text-purple-600 dark:text-purple-400 font-medium"
             >
               <span>🎯</span>
               <span>Focus on this {contextMenu.nodeType === 'group' ? 'band' : 'artist'}</span>
@@ -1429,13 +1429,13 @@ export function ArtistGraph({
                 }
                 setContextMenu(null);
               }}
-              className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-600 font-medium"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium"
             >
               <span>🔗</span>
               <span>Expand connections</span>
             </button>
           )}
-          {(!contextMenu.isRoot || !contextMenu.isLoaded) && <div className="border-t my-1" />}
+          {(!contextMenu.isRoot || !contextMenu.isLoaded) && <div className="border-t border-gray-200 dark:border-gray-700 my-1" />}
           {/* Pin/Unpin option */}
           <button
             onClick={() => {
@@ -1457,7 +1457,7 @@ export function ArtistGraph({
               }
               setContextMenu(null);
             }}
-            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
           >
             {contextMenu.isPinned ? (
               <>
@@ -1471,7 +1471,7 @@ export function ArtistGraph({
               </>
             )}
           </button>
-          <div className="border-t my-1" />
+          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
           {/* Hide/Show option - not available for root node */}
           {!contextMenu.isRoot && (
             <>
@@ -1486,7 +1486,7 @@ export function ArtistGraph({
                   setHiddenNodes(newHidden);
                   setContextMenu(null);
                 }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
               >
                 {hiddenNodes.has(contextMenu.nodeId) ? (
                   <>
@@ -1514,17 +1514,17 @@ export function ArtistGraph({
                   setHiddenNodes(newHidden);
                   setContextMenu(null);
                 }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
               >
                 <span>🚫</span>
                 <span>Hide all {contextMenu.nodeType === 'person' ? 'people' : 'groups'}</span>
               </button>
             </>
           )}
-          <div className="border-t my-1" />
+          <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
           <button
             onClick={() => setContextMenu(null)}
-            className="w-full px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-100"
+            className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             Cancel
           </button>

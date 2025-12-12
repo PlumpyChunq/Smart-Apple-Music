@@ -253,31 +253,31 @@ export function FavoritesByGenre({ favorites, onSelectArtist, onUpdateArtistGenr
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-600 font-medium">Favorites</span>
+        <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Favorites</span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setShowAddGenre(!showAddGenre)}
-            className="text-xs px-1.5 py-0.5 rounded transition-colors text-blue-500 hover:text-blue-700 hover:bg-blue-50 flex items-center gap-0.5"
+            className="text-xs px-1.5 py-0.5 rounded transition-colors text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center gap-0.5"
           >
             <Plus className="w-3 h-3" />
             Add Genre
           </button>
-          <span className="text-gray-300">|</span>
+          <span className="text-gray-300 dark:text-gray-600">|</span>
           <button
             onClick={expandAll}
             disabled={allExpanded}
             className={`text-xs px-1.5 py-0.5 rounded transition-colors ${
-              allExpanded ? 'text-gray-300' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              allExpanded ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
             Expand All
           </button>
-          <span className="text-gray-300">|</span>
+          <span className="text-gray-300 dark:text-gray-600">|</span>
           <button
             onClick={collapseAll}
             disabled={allCollapsed}
             className={`text-xs px-1.5 py-0.5 rounded transition-colors ${
-              allCollapsed ? 'text-gray-300' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              allCollapsed ? 'text-gray-300 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
             Collapse All
@@ -287,8 +287,8 @@ export function FavoritesByGenre({ favorites, onSelectArtist, onUpdateArtistGenr
 
       {/* Add Genre Panel */}
       {showAddGenre && (
-        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
-          <p className="text-xs text-gray-600 font-medium">Add a genre section:</p>
+        <div className="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg space-y-2">
+          <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Add a genre section:</p>
 
           {/* Predefined genres */}
           {availableGenresToAdd.length > 0 && (
@@ -320,7 +320,7 @@ export function FavoritesByGenre({ favorites, onSelectArtist, onUpdateArtistGenr
                 }
               }}
               placeholder="Or create custom genre..."
-              className="flex-1 text-xs px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:border-blue-400"
+              className="flex-1 text-xs px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-blue-400 dark:focus:border-blue-500"
             />
             <button
               onClick={() => addGenre(customGenreName)}
@@ -334,7 +334,7 @@ export function FavoritesByGenre({ favorites, onSelectArtist, onUpdateArtistGenr
                 setShowAddGenre(false);
                 setCustomGenreName('');
               }}
-              className="text-xs px-2 py-1.5 text-gray-500 hover:text-gray-700"
+              className="text-xs px-2 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             >
               Cancel
             </button>

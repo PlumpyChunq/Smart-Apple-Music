@@ -146,27 +146,27 @@ export function GraphFilters({
             onClick={() => handleNodeTypeToggle('person')}
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${
               filters.nodeTypes.has('person')
-                ? 'border-emerald-400 bg-emerald-100'
+                ? 'border-emerald-400 bg-emerald-100 dark:bg-emerald-900/50'
                 : 'border-transparent opacity-30 hover:opacity-60'
             }`}
             title={filters.nodeTypes.has('person') ? 'Hide people' : 'Show people'}
           >
             <span className="w-2 h-2 rounded-full flex-shrink-0 bg-emerald-500" />
-            <span className={filters.nodeTypes.has('person') ? 'text-emerald-700' : ''}>Person</span>
+            <span className={filters.nodeTypes.has('person') ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'}>Person</span>
           </button>
           <button
             onClick={() => handleNodeTypeToggle('group')}
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${
               filters.nodeTypes.has('group')
-                ? 'border-blue-400 bg-blue-100'
+                ? 'border-blue-400 bg-blue-100 dark:bg-blue-900/50'
                 : 'border-transparent opacity-30 hover:opacity-60'
             }`}
             title={filters.nodeTypes.has('group') ? 'Hide groups/bands' : 'Show groups/bands'}
           >
             <span className="w-2 h-2 rounded-full flex-shrink-0 bg-blue-500" />
-            <span className={filters.nodeTypes.has('group') ? 'text-blue-700' : ''}>Group</span>
+            <span className={filters.nodeTypes.has('group') ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'}>Group</span>
           </button>
-          <span className="text-gray-200">|</span>
+          <span className="text-gray-200 dark:text-gray-600">|</span>
           {/* Relationship type filters */}
           {visibleTypes.map((type) => {
             const config = RELATIONSHIP_CONFIG[type];
@@ -191,17 +191,17 @@ export function GraphFilters({
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ backgroundColor: config.color }}
                 />
-                <span style={isActive ? { color: '#374151' } : undefined}>{config.label}</span>
+                <span className={!isActive ? 'text-gray-600 dark:text-gray-400' : ''} style={isActive ? { color: 'inherit' } : undefined}>{config.label}</span>
               </button>
             );
           })}
-          <span className="text-gray-200">|</span>
+          <span className="text-gray-200 dark:text-gray-600">|</span>
           <button
             onClick={() => handleTemporalChange(filters.temporalFilter === 'all' ? 'current' : 'all')}
             className={`px-1.5 py-0.5 rounded border transition-all ${
               filters.temporalFilter === 'current'
-                ? 'border-green-400 bg-green-100 text-green-700'
-                : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-100'
+                ? 'border-green-400 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-100 dark:hover:border-gray-700'
             }`}
             title={filters.temporalFilter === 'current' ? 'Showing current members only' : 'Showing all members (past + present)'}
           >
@@ -209,14 +209,14 @@ export function GraphFilters({
           </button>
           <button
             onClick={handleSelectAll}
-            className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="px-1.5 py-0.5 rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             title="Show all relationship types"
           >
             All
           </button>
           <button
             onClick={handleSelectNone}
-            className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="px-1.5 py-0.5 rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             title="Clear all filters (keeps only Member)"
           >
             Clear
@@ -224,7 +224,7 @@ export function GraphFilters({
           {(isModified || nodeTypesModified) && (
             <button
               onClick={handleReset}
-              className="px-1.5 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+              className="px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/50 text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
               title="Reset filters to defaults"
             >
               Reset
@@ -235,7 +235,7 @@ export function GraphFilters({
         {/* Year Range Slider */}
         {availableYearRange && (
           <div className="flex items-center gap-2 text-[10px]">
-            <span className="text-gray-500 shrink-0">Year:</span>
+            <span className="text-gray-500 dark:text-gray-400 shrink-0">Year:</span>
             <YearRangeSlider
               min={availableYearRange.min}
               max={availableYearRange.max}
@@ -246,7 +246,7 @@ export function GraphFilters({
             {isYearFilterActive && (
               <button
                 onClick={handleClearYearRange}
-                className="px-1.5 py-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+                className="px-1.5 py-0.5 rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"
                 title="Show all years"
               >
                 All Years
@@ -558,7 +558,7 @@ function YearRangeSlider({ min, max, value, onChange, isActive }: YearRangeSlide
 
   return (
     <div className="flex items-center gap-2 flex-1 min-w-0" role="group" aria-label="Year range filter">
-      <span className={`text-[10px] font-medium tabular-nums ${isActive ? 'text-blue-600' : 'text-gray-500'}`}>
+      <span className={`text-[10px] font-medium tabular-nums ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
         {value.min}
       </span>
       <div
@@ -567,13 +567,13 @@ function YearRangeSlider({ min, max, value, onChange, isActive }: YearRangeSlide
         onClick={handleTrackClick}
       >
         {/* Background track */}
-        <div className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 ${SLIDER_TRACK_HEIGHT} bg-gray-200 rounded-full`} />
+        <div className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 ${SLIDER_TRACK_HEIGHT} bg-gray-200 dark:bg-gray-700 rounded-full`} />
 
         {/* Active range - draggable middle bar */}
         <div
           className={`absolute top-1/2 -translate-y-1/2 ${SLIDER_ACTIVE_HEIGHT} rounded-full transition-colors cursor-grab ${
             dragging === 'range' ? 'cursor-grabbing' : ''
-          } ${isActive ? 'bg-blue-400 hover:bg-blue-500' : 'bg-gray-300 hover:bg-gray-400'}`}
+          } ${isActive ? 'bg-blue-400 dark:bg-blue-500 hover:bg-blue-500 dark:hover:bg-blue-400' : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500'}`}
           style={{
             left: `${minPercent}%`,
             right: `${100 - maxPercent}%`,
@@ -598,8 +598,8 @@ function YearRangeSlider({ min, max, value, onChange, isActive }: YearRangeSlide
           aria-valuetext={`${value.min}`}
           tabIndex={0}
           className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 ${SLIDER_HANDLE_SIZE} rounded-full border-2 cursor-ew-resize transition-all z-10 ${
-            dragging === 'min' || focusedHandle === 'min' ? 'scale-125 ring-2 ring-blue-300' : 'hover:scale-110'
-          } ${isActive ? 'bg-blue-500 border-blue-600' : 'bg-white border-gray-400'}`}
+            dragging === 'min' || focusedHandle === 'min' ? 'scale-125 ring-2 ring-blue-300 dark:ring-blue-500' : 'hover:scale-110'
+          } ${isActive ? 'bg-blue-500 border-blue-600' : 'bg-white dark:bg-gray-600 border-gray-400 dark:border-gray-500'}`}
           style={{ left: `${minPercent}%` }}
           onMouseDown={handleMouseDown('min')}
           onKeyDown={handleKeyDown('min')}
@@ -618,8 +618,8 @@ function YearRangeSlider({ min, max, value, onChange, isActive }: YearRangeSlide
           aria-valuetext={`${value.max}`}
           tabIndex={0}
           className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 ${SLIDER_HANDLE_SIZE} rounded-full border-2 cursor-ew-resize transition-all z-10 ${
-            dragging === 'max' || focusedHandle === 'max' ? 'scale-125 ring-2 ring-blue-300' : 'hover:scale-110'
-          } ${isActive ? 'bg-blue-500 border-blue-600' : 'bg-white border-gray-400'}`}
+            dragging === 'max' || focusedHandle === 'max' ? 'scale-125 ring-2 ring-blue-300 dark:ring-blue-500' : 'hover:scale-110'
+          } ${isActive ? 'bg-blue-500 border-blue-600' : 'bg-white dark:bg-gray-600 border-gray-400 dark:border-gray-500'}`}
           style={{ left: `${maxPercent}%` }}
           onMouseDown={handleMouseDown('max')}
           onKeyDown={handleKeyDown('max')}
@@ -628,7 +628,7 @@ function YearRangeSlider({ min, max, value, onChange, isActive }: YearRangeSlide
           title="End year (use arrow keys to adjust)"
         />
       </div>
-      <span className={`text-[10px] font-medium tabular-nums ${isActive ? 'text-blue-600' : 'text-gray-500'}`}>
+      <span className={`text-[10px] font-medium tabular-nums ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`}>
         {value.max}
       </span>
     </div>

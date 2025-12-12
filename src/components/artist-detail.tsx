@@ -200,7 +200,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
   return (
     <div className="w-full px-4 flex flex-col h-[calc(100vh-80px)]" style={{ paddingBottom: timelineHeight + 16 }}>
       {/* Artist Header - Compact */}
-      <div className="flex items-center gap-4 bg-white p-3 rounded-lg border shrink-0 mb-4">
+      <div className="flex items-center gap-4 bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shrink-0 mb-4">
         {/* Left: Image, Star, Name */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Artist Image from Apple Music */}
@@ -211,7 +211,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
               className="w-14 h-14 rounded-lg object-cover shadow-sm"
             />
           ) : (
-            <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+            <div className="w-14 h-14 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 dark:text-gray-500">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
@@ -220,16 +220,16 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
           <button
             onClick={handleToggleFavorite}
             className={`text-xl transition-colors ${
-              isFav ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'
+              isFav ? 'text-amber-500' : 'text-gray-300 dark:text-gray-600 hover:text-amber-400'
             }`}
             title={isFav ? 'Remove from favorites' : 'Add to favorites'}
           >
             {isFav ? '★' : '☆'}
           </button>
           <div>
-            <h1 className="text-xl font-bold">{displayArtist.name}</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{displayArtist.name}</h1>
             {displayArtist.disambiguation && (
-              <p className="text-sm text-gray-500">{displayArtist.disambiguation}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{displayArtist.disambiguation}</p>
             )}
           </div>
         </div>
@@ -237,16 +237,16 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
         {/* Center: Bio */}
         <div className="flex-1 min-w-0 px-4">
           {isBioLoading ? (
-            <p className="text-sm text-gray-400 italic">Loading bio...</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 italic">Loading bio...</p>
           ) : bio ? (
-            <p className="text-sm text-gray-600 line-clamp-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-4">
               {bio}
               {wikipediaUrl && (
                 <a
                   href={wikipediaUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-500 hover:text-blue-700 ml-1"
+                  className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 ml-1"
                 >
                   Wikipedia
                 </a>
@@ -258,15 +258,15 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
         {/* Right: Badges */}
         <div className="flex items-center gap-2 text-sm shrink-0">
           {displayArtist.activeYears?.begin && (
-            <span className="text-gray-500">
+            <span className="text-gray-500 dark:text-gray-400">
               {displayArtist.activeYears.begin}{displayArtist.activeYears.end ? `–${displayArtist.activeYears.end}` : '–present'}
             </span>
           )}
-          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded-full">
             {displayArtist.type}
           </span>
           {displayArtist.country && (
-            <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded-full">
+            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 rounded-full">
               {displayArtist.country}
             </span>
           )}
@@ -274,16 +274,16 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
       </div>
 
       {/* Controls Bar */}
-      <div className="bg-white p-2 rounded-lg border space-y-2 shrink-0 mb-4">
+      <div className="bg-white dark:bg-gray-900 p-2 rounded-lg border border-gray-200 dark:border-gray-700 space-y-2 shrink-0 mb-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <h2 className="text-base font-semibold">Relationships</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Relationships</h2>
           <div className="flex items-center gap-2 flex-wrap">
-            <label className="text-sm text-gray-600">Network Depth:</label>
+            <label className="text-sm text-gray-600 dark:text-gray-400">Network Depth:</label>
             <select
               value={expansionDepth}
               onChange={(e) => handleDepthChange(Number(e.target.value) as ExpansionDepth)}
               disabled={isExpanding}
-              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white disabled:opacity-50"
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 disabled:opacity-50"
               title={expansionDepthLabels[expansionDepth]}
             >
               <option value={1}>1 - Direct</option>
@@ -291,13 +291,13 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
               <option value={3}>3 - Extended</option>
               <option value={4}>4 - Full network</option>
             </select>
-            <span className="text-gray-300">|</span>
-            <label className="text-sm text-gray-600">Layout:</label>
+            <span className="text-gray-300 dark:text-gray-600">|</span>
+            <label className="text-sm text-gray-600 dark:text-gray-400">Layout:</label>
             <select
               value={layoutType}
               onChange={(e) => setLayoutType(e.target.value as LayoutType)}
               disabled={isExpanding}
-              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white disabled:opacity-50"
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 disabled:opacity-50"
             >
               <option value="auto">Auto</option>
               <option value="spoke">Spoke</option>
@@ -308,7 +308,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
             </select>
             {hasExpandedGraph && (
               <>
-                <span className="text-gray-300">|</span>
+                <span className="text-gray-300 dark:text-gray-600">|</span>
                 <Button variant="outline" size="sm" onClick={handleResetGraph} disabled={isExpanding}>
                   Reset Graph
                 </Button>
@@ -323,7 +323,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
             </Button>
           </div>
         </div>
-        <div className="border-t pt-2">
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
           <GraphFilters
             filters={graphFilters}
             onFiltersChange={setGraphFilters}
@@ -335,20 +335,20 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
       </div>
 
       {isLoading && (
-        <div className="p-8 text-center text-gray-500">
+        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
           <div className="animate-pulse">Loading relationships...</div>
           <p className="text-sm mt-2">This may take a moment due to rate limiting</p>
         </div>
       )}
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
           Error loading relationships: {error.message}
         </div>
       )}
 
       {data && data.relationships.length === 0 && (
-        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-600">
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-300">
           No artist relationships found in MusicBrainz.
         </div>
       )}
@@ -362,13 +362,13 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
           <ResizablePanel defaultSize={showList ? 70 : 100} minSize={40}>
             <div className="relative h-full">
               {isExpanding && (
-                <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center rounded-lg">
-                  <div className="bg-white px-4 py-3 rounded-lg shadow-lg text-center">
-                    <div className="animate-pulse mb-1">
+                <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 z-10 flex items-center justify-center rounded-lg">
+                  <div className="bg-white dark:bg-gray-800 px-4 py-3 rounded-lg shadow-lg text-center">
+                    <div className="animate-pulse mb-1 text-gray-900 dark:text-gray-100">
                       Expanding network to Level {expansionDepth}...
                     </div>
                     {expandProgress && (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
                         Node {expandProgress.current} of {expandProgress.total}
                       </div>
                     )}
@@ -388,7 +388,7 @@ export function ArtistDetail({ artist, onBack, onSelectRelated }: ArtistDetailPr
                 onLayoutChange={setLayoutType}
                 filters={graphFilters}
               />
-              <div className="mt-2 text-center text-sm text-gray-500">
+              <div className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
                 {graphData.nodes.length} artists • {graphData.edges.length} connections
               </div>
             </div>
