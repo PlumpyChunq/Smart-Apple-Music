@@ -1,41 +1,41 @@
 {
   "from": "claude1",
   "location": "mac",
-  "timestamp": "2025-12-12T14:00:00Z",
-  "sequence": 65,
+  "timestamp": "2025-12-12T15:30:00Z",
+  "sequence": 66,
   "status": "DEPLOY_REQUEST",
-  "task": "Clean rebuild - founding member fix + remove duplicate search",
-  "message": "Previous deploy didn't apply changes (Gibby still missing purple ring in prod). Need CLEAN rebuild with --no-cache. Also removed duplicate search bar from home page.",
+  "task": "Deploy entity type search filter",
+  "message": "Added entity type dropdown to search - users can now filter by Artists, Songs, Albums, Compositions, Labels, Places, Events. Non-artist searches require Solr which is available on production.",
   "needs_response": true,
-  "priority": "HIGH",
+  "priority": "NORMAL",
   "action_required": {
-    "task": "Clean pull and rebuild container from scratch",
+    "task": "Pull and rebuild to test entity type search with Solr",
     "commands": [
-      "cd ~/interchord && git fetch origin && git reset --hard origin/main",
+      "cd ~/interchord && git pull origin main",
       "podman-compose down",
-      "podman-compose build --no-cache",
-      "podman-compose up -d",
-      "sleep 10 && podman-compose logs --tail 30"
+      "podman-compose up -d --build",
+      "sleep 15 && podman-compose logs --tail 30"
     ],
     "verification": [
       "curl -s http://localhost:3000/api/musicbrainz/health | jq .",
-      "curl -s 'http://localhost:3000/api/supplement?mbid=2339bc21-aa92-4850-86f0-4bb9433910c8&name=Butthole%20Surfers' | jq '.foundingMemberMbids'"
+      "curl -s 'http://localhost:3000/api/autocomplete?q=Abbey&type=release&limit=5' | jq '.results[:2]'",
+      "curl -s 'http://localhost:3000/api/autocomplete?q=Yesterday&type=recording&limit=5' | jq '.results[:2]'"
     ]
   },
   "context": {
     "key_files": [
-      "src/lib/graph/hooks.ts - post-processing for founding members",
-      "src/app/page.tsx - removed duplicate MultiSearch component"
+      "src/components/artist-search.tsx - entity type dropdown",
+      "src/lib/musicbrainz/use-autocomplete.ts - entityType param support",
+      "src/app/api/autocomplete/route.ts - PostgreSQL fallback for artists"
     ],
     "changes_summary": [
-      "Fix: Founding member status applies when supplement data arrives after graph build",
-      "Fix: Removed duplicate search bar (kept ArtistSearch with autocomplete)",
-      "IMPORTANT: Previous deploy showed 'Already up to date' - need --no-cache rebuild"
+      "Entity type dropdown: Artists, Songs, Albums, Compositions, Labels, Places, Events",
+      "Autocomplete adapts display per entity type (shows artist credit, duration, etc.)",
+      "Artists fall back to PostgreSQL when Solr unavailable",
+      "Non-artist searches show error message when Solr unavailable"
     ],
     "prerequisites": [],
-    "warnings": [
-      "Use --no-cache to ensure fresh build picks up all changes"
-    ]
+    "warnings": []
   },
   "environment": {
     "required_vars": [],
