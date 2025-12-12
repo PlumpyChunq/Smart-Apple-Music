@@ -109,43 +109,44 @@ export function SettingsDropdown() {
             <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
               Appearance
             </h3>
-            {mounted && (
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setTheme('light')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
-                    theme === 'light'
-                      ? 'bg-amber-50 border-amber-500 text-amber-700 dark:bg-amber-900/30 dark:border-amber-500 dark:text-amber-400'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                  title="Light mode"
-                >
-                  <Sun className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setTheme('dark')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
-                    theme === 'dark'
-                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-500 dark:text-indigo-400'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                  title="Dark mode"
-                >
-                  <Moon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setTheme('system')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
-                    theme === 'system'
-                      ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-400'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                  title="System preference"
-                >
-                  <Monitor className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            <div className="flex gap-1">
+              <button
+                onClick={() => setTheme('light')}
+                disabled={!mounted}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
+                  mounted && theme === 'light'
+                    ? 'bg-amber-50 border-amber-500 text-amber-700 dark:bg-amber-900/30 dark:border-amber-500 dark:text-amber-400'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                } ${!mounted ? 'opacity-50 cursor-wait' : ''}`}
+                title="Light mode"
+              >
+                <Sun className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                disabled={!mounted}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
+                  mounted && theme === 'dark'
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-500 dark:text-indigo-400'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                } ${!mounted ? 'opacity-50 cursor-wait' : ''}`}
+                title="Dark mode"
+              >
+                <Moon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setTheme('system')}
+                disabled={!mounted}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
+                  mounted && theme === 'system'
+                    ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-400'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                } ${!mounted ? 'opacity-50 cursor-wait' : ''}`}
+                title="System preference"
+              >
+                <Monitor className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           <div className="border-t border-gray-200 dark:border-gray-700 p-3">
