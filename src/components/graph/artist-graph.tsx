@@ -37,6 +37,20 @@ const PAN_DISTANCE_FACTOR = 0.3;
 // Layout types available to users
 export type LayoutType = 'auto' | 'radial' | 'force' | 'hierarchical' | 'concentric' | 'spoke';
 
+/**
+ * Z-INDEX LAYERING STRATEGY
+ * -------------------------
+ * This component uses the following z-index scale for UI layers:
+ *
+ *   z-0:    Cytoscape canvas (graph itself)
+ *   z-10:   Graph overlays (controls, legend, indicators)
+ *   z-50:   Context menus (right-click menus)
+ *   z-[1000+]: External overlays (Leaflet maps use 1000+)
+ *
+ * When in native fullscreen mode, the browser handles stacking,
+ * so these z-indexes work relative to the fullscreen element.
+ */
+
 interface ArtistGraphProps {
   graph: ArtistGraphType;
   /** Called when a node is clicked. Receives null when clicking the background to clear selection. */
@@ -768,20 +782,30 @@ export function ArtistGraph({
   resumeSimulationRef.current = resumeSimulation;
   resetInactivityTimerRef.current = resetInactivityTimer;
 
-  // Use browser's native Fullscreen API
+  // Fullscreen API with vendor prefixes for Safari/older browsers
   const enterFullscreen = useCallback(() => {
     const wrapper = document.getElementById('graph-fullscreen-wrapper');
-    if (wrapper && wrapper.requestFullscreen) {
-      wrapper.requestFullscreen().then(() => {
+    if (!wrapper) return;
+
+    // Get the appropriate requestFullscreen method (with vendor prefixes)
+    const requestFullscreen = wrapper.requestFullscreen ||
+      (wrapper as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen ||
+      (wrapper as HTMLElement & { msRequestFullscreen?: () => Promise<void> }).msRequestFullscreen;
+
+    if (requestFullscreen) {
+      requestFullscreen.call(wrapper).then(() => {
         setIsFullscreen(true);
-        // Resize after entering fullscreen
+        // Resize after entering fullscreen (100ms delay for transition to complete)
         setTimeout(() => {
           if (cyRef.current && !isDestroyedRef.current) {
             cyRef.current.resize();
             cyRef.current.fit(undefined, 50);
           }
         }, 100);
-      }).catch(() => {
+      }).catch((err: Error) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Fullscreen request failed:', err.message);
+        }
         // Fallback: just set state without native fullscreen
         setIsFullscreen(true);
       });
@@ -789,26 +813,46 @@ export function ArtistGraph({
   }, []);
 
   const exitFullscreen = useCallback(() => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen().then(() => {
-        setIsFullscreen(false);
-        setTimeout(() => {
-          if (cyRef.current && !isDestroyedRef.current) {
-            cyRef.current.resize();
+    // Get the current fullscreen element (with vendor prefixes)
+    const fullscreenElement = document.fullscreenElement ||
+      (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement ||
+      (document as Document & { msFullscreenElement?: Element }).msFullscreenElement;
+
+    if (fullscreenElement) {
+      // Get the appropriate exitFullscreen method (with vendor prefixes)
+      const exitFullscreenFn = document.exitFullscreen ||
+        (document as Document & { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen ||
+        (document as Document & { msExitFullscreen?: () => Promise<void> }).msExitFullscreen;
+
+      if (exitFullscreenFn) {
+        exitFullscreenFn.call(document).then(() => {
+          setIsFullscreen(false);
+          setTimeout(() => {
+            if (cyRef.current && !isDestroyedRef.current) {
+              cyRef.current.resize();
+            }
+          }, 100);
+        }).catch((err: Error) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Exit fullscreen failed:', err.message);
           }
-        }, 100);
-      }).catch(() => {
-        setIsFullscreen(false);
-      });
+          setIsFullscreen(false);
+        });
+      }
     } else {
       setIsFullscreen(false);
     }
   }, []);
 
   // Listen for fullscreen change events (e.g., user presses Escape)
+  // Includes vendor-prefixed events for Safari/older browsers
   useEffect(() => {
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && isFullscreen) {
+      const fullscreenElement = document.fullscreenElement ||
+        (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement ||
+        (document as Document & { msFullscreenElement?: Element }).msFullscreenElement;
+
+      if (!fullscreenElement && isFullscreen) {
         setIsFullscreen(false);
         setTimeout(() => {
           if (cyRef.current && !isDestroyedRef.current) {
@@ -818,8 +862,16 @@ export function ArtistGraph({
       }
     };
 
+    // Add all vendor-prefixed event listeners
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
   }, [isFullscreen]);
 
   // Initialize Cytoscape

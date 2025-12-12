@@ -6,12 +6,9 @@ import { useTheme } from 'next-themes';
 import type { WikidataArtistBio, WikidataPlace } from '@/lib/wikidata';
 import type { Marker as LeafletMarker } from 'leaflet';
 
-// Map tile URL (same for both modes, we use CSS filter for dark)
+// Map tile URL (same for both modes, we use CSS filter for dark via .map-tiles-dark class)
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-
-// CSS filter for dark mode - inverts and adjusts for a softer dark appearance
-const DARK_MODE_FILTER = 'invert(0.9) hue-rotate(180deg) brightness(1.1) contrast(0.85)';
 
 // Dynamically import the map component to avoid SSR issues
 const MapContainer = dynamic(
