@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { ArtistSearch } from '@/components/artist-search';
-import { MultiSearch } from '@/components/multi-search';
 import { ArtistDetail } from '@/components/artist-detail';
 import { FavoritesRecentShows } from '@/components/favorites-recent-shows';
 import { SettingsDropdown } from '@/components/settings-dropdown';
@@ -252,32 +251,7 @@ export default function Home() {
           <EntityDetail entity={selectedEntity} onBack={handleBack} />
         ) : (
           <>
-            {/* Multi-entity search bar */}
-            <div className="max-w-2xl mx-auto mb-6">
-              <MultiSearch
-                onArtistSelect={(artist) => setSelectedArtist(artist)}
-                onRecordingSelect={(recording) =>
-                  setSelectedEntity({ type: 'recording', data: recording })
-                }
-                onReleaseSelect={(release) =>
-                  setSelectedEntity({ type: 'release', data: release })
-                }
-                onWorkSelect={(work) =>
-                  setSelectedEntity({ type: 'work', data: work })
-                }
-                onLabelSelect={(label) =>
-                  setSelectedEntity({ type: 'label', data: label })
-                }
-                onPlaceSelect={(place) =>
-                  setSelectedEntity({ type: 'place', data: place })
-                }
-                onEventSelect={(event) =>
-                  setSelectedEntity({ type: 'event', data: event })
-                }
-              />
-            </div>
-
-            {/* Original artist search with favorites list */}
+            {/* Artist search with autocomplete and favorites */}
             <ArtistSearch onSelectArtist={setSelectedArtist} />
 
             {/* Show favorites recent shows on home page (after localStorage loads) */}
