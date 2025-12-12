@@ -1,15 +1,15 @@
 {
   "from": "claude1",
   "location": "mac",
-  "timestamp": "2025-12-12T20:25:00Z",
-  "sequence": 70,
+  "timestamp": "2025-12-12T20:33:00Z",
+  "sequence": 71,
   "status": "DEPLOY_REQUEST",
-  "task": "Deploy complete genre enrichment fix",
-  "message": "Genre enrichment is now fully working. Three issues fixed: (1) React Query staleTime prevented refetch, (2) localStorage cache returned old data, (3) addToFavorites didn't include genres. Verified with Playwright - favorites now properly categorize by genre.",
+  "task": "Deploy genre-at-import-time fix",
+  "message": "Fixed genres not being included when importing from Apple Music/Spotify. Root cause: searchArtists() doesn't return genres for performance. Fix: Added getArtistById() function that fetches full artist with genres, called after search match during import.",
   "needs_response": true,
   "priority": "HIGH",
   "action_required": {
-    "task": "Pull and rebuild to enable genre categorization",
+    "task": "Pull and rebuild to enable genre categorization at import",
     "commands": [
       "cd ~/interchord && git pull origin main",
       "podman-compose down",
@@ -18,27 +18,26 @@
     ],
     "verification": [
       "curl -s http://localhost:3000/api/musicbrainz/health | jq .",
-      "curl -s 'http://localhost:3000/api/musicbrainz/artist/2339bc21-aa92-4850-86f0-4bb9433910c8' | jq '.artist.genres'"
+      "curl -s 'http://localhost:3000/api/musicbrainz/artist/5b11f4ce-a62d-471e-81fc-a69a8278c7da' | jq '.artist.genres'"
     ]
   },
   "context": {
     "key_files": [
-      "src/lib/musicbrainz/hooks.ts - staleTime: 0 + localStorage cache migration",
-      "src/lib/musicbrainz/db-client.ts - Tag/genre fetching from PostgreSQL",
-      "src/lib/favorites/utils.ts - enrichFavoriteGenres function",
-      "src/components/artist-detail.tsx - Include genres when adding favorites"
+      "src/lib/musicbrainz/index.ts - NEW getArtistById() function",
+      "src/lib/apple-music/import-manager.ts - Calls getArtistById after search",
+      "src/components/spotify-auth.tsx - Same pattern for Spotify import"
     ],
     "changes_summary": [
-      "staleTime changed from Infinity to 0 for artist relationships",
-      "localStorage cache checks for missing genres and refetches",
-      "handleToggleFavorite now includes genres from fetched data",
-      "Genres fetched from MusicBrainz PostgreSQL artist_tag/tag tables"
+      "Added getArtistById() to fetch full artist data with genres",
+      "Apple Music import now fetches genres after search match",
+      "Spotify import now fetches genres after search match",
+      "Background sync also updated for both services"
     ],
     "fixes_issues": [
-      "All favorites grouped in 'Other' category",
-      "Genre enrichment not triggering on cached data"
+      "Genres not included at import time from Apple Music/Spotify",
+      "All newly imported artists going to 'Other' category"
     ],
-    "user_action_required": "Click on each favorite artist once to trigger genre enrichment. New favorites will automatically include genres.",
+    "user_action_required": "Re-import from Apple Music or Spotify to get genres. Existing favorites without genres will be enriched when clicked.",
     "prerequisites": [],
     "warnings": []
   },
@@ -46,5 +45,5 @@
     "required_vars": [],
     "required_tools": ["podman", "podman-compose"]
   },
-  "notes": "SPOTIFY REDIRECT ISSUE: Use http://127.0.0.1:3000 instead of http://localhost:3000. Verified working with Playwright testing."
+  "notes": "SPOTIFY REDIRECT ISSUE: Use http://127.0.0.1:3000 instead of http://localhost:3000."
 }
