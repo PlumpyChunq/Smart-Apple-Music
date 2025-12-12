@@ -16,7 +16,7 @@
 - [ ] Global search across all types (title, artist, band, year combined)
 - [ ] Identify original song and original performer (cover → original work)
 - [ ] View original artist profile from cover version
-- [ ] Hover over result to refocus main search context
+- [ ] Right-click on result to refocus main search context
 - [ ] Discovery queue (add songs/artists/bands/years for later exploration)
 - [ ] Shazam/audio recognition integration (if API available)
 
