@@ -7,7 +7,7 @@ import { RecentConcerts } from '@/components/recent-concerts';
 import { ArtistBiography } from '@/components/artist-biography';
 import { ArtistMap } from '@/components/artist-map';
 import { useArtistBio, useMultipleArtistBios } from '@/lib/wikidata';
-import { useStreamingPreference } from '@/lib/streaming';
+import { useStreamingPreference, getUseNativeApp } from '@/lib/streaming';
 import { StreamingSelector } from '@/components/streaming-selector';
 import type { ArtistNode, ArtistRelationship, TimelineEvent } from '@/types';
 import type { GraphFilterState } from '@/components/graph';
@@ -327,7 +327,8 @@ export function SidebarSections({
       <div className="space-y-2" ref={albumsContainerRef}>
         <div className="grid grid-cols-3 gap-2">
           {displayedAlbums.map(({ album, year: albumYear }) => {
-            const musicUrl = streamingService.getAlbumUrl(displayArtist.name, album.name);
+            const useNativeApp = getUseNativeApp();
+            const musicUrl = streamingService.getAlbumUrl(displayArtist.name, album.name, useNativeApp);
             const wikiAlbumUrl = `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(`${album.name} ${displayArtist.name} album`)}`;
             const isAlbumInRange = !graphFilters.yearRange || !albumYear ||
               (albumYear >= graphFilters.yearRange.min && albumYear <= graphFilters.yearRange.max);
@@ -343,8 +344,8 @@ export function SidebarSections({
               >
                 <a
                   href={musicUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  // Only use target="_blank" for web URLs, not for native app URLs (music://, spotify://)
+                  {...(!useNativeApp ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                   className="block cursor-pointer"
                 >
                   {album.artworkUrl ? (

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { TimelineEvent, TimelineEventType } from '@/types';
-import { getAlbumStreamingUrl, getPreferredService } from '@/lib/streaming';
+import { getAlbumStreamingUrl, getPreferredService, getUseNativeApp } from '@/lib/streaming';
 
 interface TimelineEventPopupProps {
   event: TimelineEvent;
@@ -118,24 +118,28 @@ export function TimelineEventPopup({ event, position, onClose }: TimelineEventPo
         {/* Actions */}
         <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex flex-col gap-2">
           {/* Streaming service button for albums */}
-          {event.type === 'album' && event.artistName && (
-            <a
-              href={getAlbumStreamingUrl(event.artistName, event.title)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 text-center px-3 py-2 text-xs font-medium text-white rounded transition-colors flex items-center justify-center gap-2"
-              style={{ background: getPreferredService().id === 'spotify'
-                ? 'linear-gradient(180deg, #1DB954 0%, #1aa34a 100%)'
-                : 'linear-gradient(180deg, #fc3c44 0%, #e91e63 100%)' }}
-            >
-              {getPreferredService().id === 'spotify' ? (
-                <SpotifyIcon className="w-4 h-4" />
-              ) : (
-                <AppleMusicIcon className="w-4 h-4" />
-              )}
-              Open in {getPreferredService().name}
-            </a>
-          )}
+          {event.type === 'album' && event.artistName && (() => {
+            const useNative = getUseNativeApp();
+            const service = getPreferredService();
+            return (
+              <a
+                href={getAlbumStreamingUrl(event.artistName, event.title)}
+                // Only use target="_blank" for web URLs, not for native app URLs (music://, spotify://)
+                {...(!useNative ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                className="flex-1 text-center px-3 py-2 text-xs font-medium text-white rounded transition-colors flex items-center justify-center gap-2"
+                style={{ background: service.id === 'spotify'
+                  ? 'linear-gradient(180deg, #1DB954 0%, #1aa34a 100%)'
+                  : 'linear-gradient(180deg, #fc3c44 0%, #e91e63 100%)' }}
+              >
+                {service.id === 'spotify' ? (
+                  <SpotifyIcon className="w-4 h-4" />
+                ) : (
+                  <AppleMusicIcon className="w-4 h-4" />
+                )}
+                Open in {service.name}{useNative ? ' App' : ''}
+              </a>
+            );
+          })()}
           <div className="flex gap-2">
             {event.externalUrl && (
               <a
