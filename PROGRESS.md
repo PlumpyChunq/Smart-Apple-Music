@@ -402,6 +402,24 @@ Formation   Brown Reason  Locust      Electricl.  Touring
 
 ---
 
+## Infrastructure References
+
+### Bare-Metal Kubernetes Ingress Options
+Reference: https://kubernetes.github.io/ingress-nginx/deploy/baremetal/
+
+| Approach | Description | Pros | Cons |
+|----------|-------------|------|------|
+| **MetalLB** | Software load-balancer for bare-metal | Full LoadBalancer support, dedicated IPs | Requires IP pool configuration |
+| **NodePort** | NGINX binds to ports 30000-32767 | Simplest default | Source IP lost, non-standard ports |
+| **Host Network** | Pods use host's network namespace | Direct 80/443 binding | One pod per node, security concerns |
+| **External IPs** | Manual node IP assignment | Simple routing | No source IP preservation, not recommended |
+| **Self-Provisioned Edge** | External hardware/software forwards to NodePort | Good for private clusters | Requires additional infrastructure |
+
+**Current Setup:** Cloudflare Tunnel (zero-config, works through NAT)
+**Future Consideration:** MetalLB if migrating to Kubernetes cluster
+
+---
+
 ## MusicBrainz Relationship Types Reference
 
 ### Artist ↔ Artist
