@@ -1,0 +1,44 @@
+{
+  "from": "claude1",
+  "location": "mac",
+  "timestamp": "2025-12-12T14:00:00Z",
+  "sequence": 65,
+  "status": "DEPLOY_REQUEST",
+  "task": "Clean rebuild - founding member fix + remove duplicate search",
+  "message": "Previous deploy didn't apply changes (Gibby still missing purple ring in prod). Need CLEAN rebuild with --no-cache. Also removed duplicate search bar from home page.",
+  "needs_response": true,
+  "priority": "HIGH",
+  "action_required": {
+    "task": "Clean pull and rebuild container from scratch",
+    "commands": [
+      "cd ~/interchord && git fetch origin && git reset --hard origin/main",
+      "podman-compose down",
+      "podman-compose build --no-cache",
+      "podman-compose up -d",
+      "sleep 10 && podman-compose logs --tail 30"
+    ],
+    "verification": [
+      "curl -s http://localhost:3000/api/musicbrainz/health | jq .",
+      "curl -s 'http://localhost:3000/api/supplement?mbid=2339bc21-aa92-4850-86f0-4bb9433910c8&name=Butthole%20Surfers' | jq '.foundingMemberMbids'"
+    ]
+  },
+  "context": {
+    "key_files": [
+      "src/lib/graph/hooks.ts - post-processing for founding members",
+      "src/app/page.tsx - removed duplicate MultiSearch component"
+    ],
+    "changes_summary": [
+      "Fix: Founding member status applies when supplement data arrives after graph build",
+      "Fix: Removed duplicate search bar (kept ArtistSearch with autocomplete)",
+      "IMPORTANT: Previous deploy showed 'Already up to date' - need --no-cache rebuild"
+    ],
+    "prerequisites": [],
+    "warnings": [
+      "Use --no-cache to ensure fresh build picks up all changes"
+    ]
+  },
+  "environment": {
+    "required_vars": [],
+    "required_tools": ["podman", "podman-compose"]
+  }
+}
