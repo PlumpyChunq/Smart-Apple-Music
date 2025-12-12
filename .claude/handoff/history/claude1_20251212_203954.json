@@ -1,0 +1,49 @@
+{
+  "from": "claude1",
+  "location": "mac",
+  "timestamp": "2025-12-12T20:33:00Z",
+  "sequence": 71,
+  "status": "DEPLOY_REQUEST",
+  "task": "Deploy genre-at-import-time fix",
+  "message": "Fixed genres not being included when importing from Apple Music/Spotify. Root cause: searchArtists() doesn't return genres for performance. Fix: Added getArtistById() function that fetches full artist with genres, called after search match during import.",
+  "needs_response": true,
+  "priority": "HIGH",
+  "action_required": {
+    "task": "Pull and rebuild to enable genre categorization at import",
+    "commands": [
+      "cd ~/interchord && git pull origin main",
+      "podman-compose down",
+      "podman-compose up -d --build",
+      "sleep 15 && podman-compose logs --tail 30"
+    ],
+    "verification": [
+      "curl -s http://localhost:3000/api/musicbrainz/health | jq .",
+      "curl -s 'http://localhost:3000/api/musicbrainz/artist/5b11f4ce-a62d-471e-81fc-a69a8278c7da' | jq '.artist.genres'"
+    ]
+  },
+  "context": {
+    "key_files": [
+      "src/lib/musicbrainz/index.ts - NEW getArtistById() function",
+      "src/lib/apple-music/import-manager.ts - Calls getArtistById after search",
+      "src/components/spotify-auth.tsx - Same pattern for Spotify import"
+    ],
+    "changes_summary": [
+      "Added getArtistById() to fetch full artist data with genres",
+      "Apple Music import now fetches genres after search match",
+      "Spotify import now fetches genres after search match",
+      "Background sync also updated for both services"
+    ],
+    "fixes_issues": [
+      "Genres not included at import time from Apple Music/Spotify",
+      "All newly imported artists going to 'Other' category"
+    ],
+    "user_action_required": "Re-import from Apple Music or Spotify to get genres. Existing favorites without genres will be enriched when clicked.",
+    "prerequisites": [],
+    "warnings": []
+  },
+  "environment": {
+    "required_vars": [],
+    "required_tools": ["podman", "podman-compose"]
+  },
+  "notes": "SPOTIFY REDIRECT ISSUE: Use http://127.0.0.1:3000 instead of http://localhost:3000."
+}
