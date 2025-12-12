@@ -35,7 +35,259 @@ const SOLR_URL = process.env.SOLR_URL || 'http://localhost:8983/solr';
 const SOLR_TIMEOUT_MS = 3000;
 
 // ============================================================================
-// Solr Document Interfaces
+// XML Parsing Helpers
+// ============================================================================
+
+/**
+ * Extract a simple text value from XML using regex
+ * Handles both ns0: prefixed tags and unprefixed tags
+ */
+function extractXmlValue(xml: string, tagName: string): string | undefined {
+  // Try with namespace prefix first
+  const nsMatch = xml.match(new RegExp(`<ns0:${tagName}>([^<]*)</ns0:${tagName}>`));
+  if (nsMatch) return nsMatch[1];
+
+  // Try without namespace
+  const match = xml.match(new RegExp(`<${tagName}>([^<]*)</${tagName}>`));
+  return match ? match[1] : undefined;
+}
+
+/**
+ * Parse the _store XML field for releases
+ */
+function parseReleaseXml(xml: string, mbid: string): ReleaseNode {
+  const title = extractXmlValue(xml, 'title') || '';
+
+  // Get artist name from artist-credit > name-credit > name
+  const artistCreditMatch = xml.match(/<ns0:artist-credit[^>]*>[\s\S]*?<ns0:name>([^<]*)<\/ns0:name>/);
+  const artistCredit = artistCreditMatch ? artistCreditMatch[1] : undefined;
+
+  // Get artist MBID from artist element
+  const artistIdMatch = xml.match(/<ns0:artist id="([^"]+)"/);
+  const artistId = artistIdMatch ? artistIdMatch[1] : undefined;
+
+  // Get release type from release-group
+  const typeMatch = xml.match(/<ns0:release-group[^>]*type="([^"]+)"/);
+  const type = typeMatch ? typeMatch[1] : undefined;
+
+  const date = extractXmlValue(xml, 'date');
+  const country = extractXmlValue(xml, 'country');
+  const barcode = extractXmlValue(xml, 'barcode');
+  const comment = extractXmlValue(xml, 'comment');
+
+  // Get label name
+  const labelMatch = xml.match(/<ns0:label[^>]*>[\s\S]*?<ns0:name>([^<]*)<\/ns0:name>/);
+  const labelName = labelMatch ? labelMatch[1] : undefined;
+
+  return {
+    id: mbid,
+    name: title,
+    artistCredit,
+    artistId,
+    type,
+    date,
+    country,
+    labelName,
+    barcode,
+    disambiguation: comment,
+  };
+}
+
+/**
+ * Parse the _store XML field for recordings
+ */
+function parseRecordingXml(xml: string, mbid: string): RecordingNode {
+  const title = extractXmlValue(xml, 'title') || '';
+
+  // Get artist name from artist-credit
+  const artistCreditMatch = xml.match(/<ns0:artist-credit[^>]*>[\s\S]*?<ns0:name>([^<]*)<\/ns0:name>/);
+  const artistCredit = artistCreditMatch ? artistCreditMatch[1] : undefined;
+
+  // Get artist MBID
+  const artistIdMatch = xml.match(/<ns0:artist id="([^"]+)"/);
+  const artistId = artistIdMatch ? artistIdMatch[1] : undefined;
+
+  // Get duration (in ms)
+  const lengthStr = extractXmlValue(xml, 'length');
+  const duration = lengthStr ? parseInt(lengthStr, 10) : undefined;
+
+  const comment = extractXmlValue(xml, 'comment');
+
+  // Get release title from first release in list
+  const releaseMatch = xml.match(/<ns0:release-list[^>]*>[\s\S]*?<ns0:title>([^<]*)<\/ns0:title>/);
+  const releaseTitle = releaseMatch ? releaseMatch[1] : undefined;
+
+  // Get release MBID
+  const releaseIdMatch = xml.match(/<ns0:release id="([^"]+)"/);
+  const releaseId = releaseIdMatch ? releaseIdMatch[1] : undefined;
+
+  // Get ISRC
+  const isrcMatch = xml.match(/<ns0:isrc id="([^"]+)"/);
+  const isrc = isrcMatch ? isrcMatch[1] : undefined;
+
+  return {
+    id: mbid,
+    name: title,
+    artistCredit,
+    artistId,
+    duration,
+    disambiguation: comment,
+    releaseTitle,
+    releaseId,
+    isrc,
+  };
+}
+
+/**
+ * Parse the _store XML field for release groups
+ */
+function parseReleaseGroupXml(xml: string, mbid: string): ReleaseGroupNode {
+  const title = extractXmlValue(xml, 'title') || '';
+
+  const artistCreditMatch = xml.match(/<ns0:artist-credit[^>]*>[\s\S]*?<ns0:name>([^<]*)<\/ns0:name>/);
+  const artistCredit = artistCreditMatch ? artistCreditMatch[1] : undefined;
+
+  const artistIdMatch = xml.match(/<ns0:artist id="([^"]+)"/);
+  const artistId = artistIdMatch ? artistIdMatch[1] : undefined;
+
+  const type = extractXmlValue(xml, 'primary-type');
+  const firstReleaseDate = extractXmlValue(xml, 'first-release-date');
+  const comment = extractXmlValue(xml, 'comment');
+
+  return {
+    id: mbid,
+    name: title,
+    artistCredit,
+    artistId,
+    type,
+    firstReleaseDate,
+    disambiguation: comment,
+  };
+}
+
+/**
+ * Parse the _store XML field for works
+ */
+function parseWorkXml(xml: string, mbid: string): WorkNode {
+  const title = extractXmlValue(xml, 'title') || '';
+  const type = extractXmlValue(xml, 'type');
+  const comment = extractXmlValue(xml, 'comment');
+
+  // Get ISWC from iswc-list
+  const iswcMatch = xml.match(/<ns0:iswc>([^<]*)<\/ns0:iswc>/);
+  const iswc = iswcMatch ? iswcMatch[1] : undefined;
+
+  // Get writer/composer from relation
+  const artistMatch = xml.match(/<ns0:artist id="([^"]+)"[^>]*>[\s\S]*?<ns0:name>([^<]*)<\/ns0:name>/);
+  const artistId = artistMatch ? artistMatch[1] : undefined;
+  const artistCredit = artistMatch ? artistMatch[2] : undefined;
+
+  return {
+    id: mbid,
+    name: title,
+    type,
+    iswc,
+    disambiguation: comment,
+    artistCredit,
+    artistId,
+  };
+}
+
+/**
+ * Parse the _store XML field for labels
+ */
+function parseLabelXml(xml: string, mbid: string): LabelNode {
+  const name = extractXmlValue(xml, 'name') || '';
+  const type = extractXmlValue(xml, 'type');
+  const country = extractXmlValue(xml, 'country');
+  const comment = extractXmlValue(xml, 'comment');
+
+  // Get founded year from life-span begin
+  const beginMatch = xml.match(/<ns0:life-span>[\s\S]*?<ns0:begin>([^<]*)<\/ns0:begin>/);
+  const foundedYear = beginMatch ? beginMatch[1] : undefined;
+
+  return {
+    id: mbid,
+    name,
+    type,
+    country,
+    foundedYear,
+    disambiguation: comment,
+  };
+}
+
+/**
+ * Parse the _store XML field for places
+ */
+function parsePlaceXml(xml: string, mbid: string): PlaceNode {
+  const name = extractXmlValue(xml, 'name') || '';
+  const type = extractXmlValue(xml, 'type');
+  const address = extractXmlValue(xml, 'address');
+  const comment = extractXmlValue(xml, 'comment');
+
+  // Get area name
+  const areaMatch = xml.match(/<ns0:area[^>]*>[\s\S]*?<ns0:name>([^<]*)<\/ns0:name>/);
+  const area = areaMatch ? areaMatch[1] : undefined;
+
+  return {
+    id: mbid,
+    name,
+    type,
+    address,
+    area,
+    disambiguation: comment,
+  };
+}
+
+/**
+ * Parse the _store XML field for areas
+ */
+function parseAreaXml(xml: string, mbid: string): AreaNode {
+  const name = extractXmlValue(xml, 'name') || '';
+  const type = extractXmlValue(xml, 'type');
+  const comment = extractXmlValue(xml, 'comment');
+
+  return {
+    id: mbid,
+    name,
+    type,
+    disambiguation: comment,
+  };
+}
+
+/**
+ * Parse the _store XML field for events
+ */
+function parseEventXml(xml: string, mbid: string): EventNode {
+  const name = extractXmlValue(xml, 'name') || '';
+  const type = extractXmlValue(xml, 'type');
+  const comment = extractXmlValue(xml, 'comment');
+
+  // Get date from life-span begin
+  const dateMatch = xml.match(/<ns0:life-span>[\s\S]*?<ns0:begin>([^<]*)<\/ns0:begin>/);
+  const date = dateMatch ? dateMatch[1] : undefined;
+
+  // Get place name
+  const placeMatch = xml.match(/<ns0:place[^>]*>[\s\S]*?<ns0:name>([^<]*)<\/ns0:name>/);
+  const place = placeMatch ? placeMatch[1] : undefined;
+
+  // Get area name
+  const areaMatch = xml.match(/<ns0:area[^>]*>[\s\S]*?<ns0:name>([^<]*)<\/ns0:name>/);
+  const area = areaMatch ? areaMatch[1] : undefined;
+
+  return {
+    id: mbid,
+    name,
+    type,
+    date,
+    place,
+    area,
+    disambiguation: comment,
+  };
+}
+
+// ============================================================================
+// Solr Document Interfaces (for entity types with stored fields)
 // ============================================================================
 
 interface SolrArtistDoc {
@@ -50,97 +302,14 @@ interface SolrArtistDoc {
   comment?: string;
 }
 
-interface SolrRecordingDoc {
+// Non-artist entity types only return mbid and _store (XML blob)
+// We parse the XML to extract the actual data
+interface SolrXmlDoc {
   mbid: string;
-  recording: string;           // Track title
-  artist?: string;             // Artist name
-  arid?: string;               // Artist MBID
-  dur?: number;                // Duration in ms
-  comment?: string;
-  release?: string;            // Album name
-  reid?: string;               // Release MBID
-  isrc?: string;
+  _store: string;              // XML blob containing all entity data
 }
 
-interface SolrReleaseDoc {
-  mbid: string;
-  release: string;             // Album title
-  artist?: string;             // Artist name
-  arid?: string;               // Artist MBID
-  type?: string;               // Album, EP, Single
-  date?: string;               // Release date
-  country?: string;
-  label?: string;              // Record label
-  barcode?: string;
-  comment?: string;
-}
-
-interface SolrReleaseGroupDoc {
-  mbid: string;
-  releasegroup: string;        // Album title
-  artist?: string;             // Artist name
-  arid?: string;               // Artist MBID
-  type?: string;               // Album, EP, Single
-  firstreleasedate?: string;
-  comment?: string;
-}
-
-interface SolrWorkDoc {
-  mbid: string;
-  work: string;                // Composition title
-  type?: string;               // Song, Opera, etc.
-  iswc?: string;
-  comment?: string;
-  artist?: string;             // Composer/songwriter names
-  arid?: string;               // Composer MBID
-  recording_count?: number;    // Number of recordings of this work
-}
-
-interface SolrLabelDoc {
-  mbid: string;
-  label: string;               // Label name
-  type?: string;
-  country?: string;
-  begin?: string;              // Founded year
-  comment?: string;
-}
-
-interface SolrPlaceDoc {
-  mbid: string;
-  place: string;               // Place name
-  type?: string;               // Venue, Studio, etc.
-  address?: string;
-  area?: string;               // City/region
-  comment?: string;
-}
-
-interface SolrAreaDoc {
-  mbid: string;
-  area: string;                // Area name
-  type?: string;               // Country, City, etc.
-  comment?: string;
-}
-
-interface SolrEventDoc {
-  mbid: string;
-  event: string;               // Event name
-  type?: string;               // Concert, Festival
-  begin?: string;              // Event date
-  place?: string;              // Venue
-  area?: string;               // City
-  comment?: string;
-}
-
-type SolrDoc =
-  | SolrArtistDoc
-  | SolrRecordingDoc
-  | SolrReleaseDoc
-  | SolrReleaseGroupDoc
-  | SolrWorkDoc
-  | SolrLabelDoc
-  | SolrPlaceDoc
-  | SolrAreaDoc
-  | SolrEventDoc;
+type SolrDoc = SolrArtistDoc | SolrXmlDoc;
 
 interface SolrResponse<T = SolrDoc> {
   response: {
@@ -171,127 +340,6 @@ function mapSolrArtistDoc(doc: SolrArtistDoc): ArtistNode {
         }
       : undefined,
     loaded: false,
-  };
-}
-
-/**
- * Map Solr document to RecordingNode
- */
-function mapSolrRecordingDoc(doc: SolrRecordingDoc): RecordingNode {
-  return {
-    id: doc.mbid,
-    name: doc.recording,
-    artistCredit: doc.artist,
-    artistId: doc.arid,
-    duration: doc.dur,
-    disambiguation: doc.comment,
-    releaseTitle: doc.release,
-    releaseId: doc.reid,
-    isrc: doc.isrc,
-  };
-}
-
-/**
- * Map Solr document to ReleaseNode
- */
-function mapSolrReleaseDoc(doc: SolrReleaseDoc): ReleaseNode {
-  return {
-    id: doc.mbid,
-    name: doc.release,
-    artistCredit: doc.artist,
-    artistId: doc.arid,
-    type: doc.type,
-    date: doc.date,
-    country: doc.country,
-    labelName: doc.label,
-    barcode: doc.barcode,
-    disambiguation: doc.comment,
-  };
-}
-
-/**
- * Map Solr document to ReleaseGroupNode
- */
-function mapSolrReleaseGroupDoc(doc: SolrReleaseGroupDoc): ReleaseGroupNode {
-  return {
-    id: doc.mbid,
-    name: doc.releasegroup,
-    artistCredit: doc.artist,
-    artistId: doc.arid,
-    type: doc.type,
-    firstReleaseDate: doc.firstreleasedate,
-    disambiguation: doc.comment,
-  };
-}
-
-/**
- * Map Solr document to WorkNode
- */
-function mapSolrWorkDoc(doc: SolrWorkDoc): WorkNode {
-  return {
-    id: doc.mbid,
-    name: doc.work,
-    type: doc.type,
-    iswc: doc.iswc,
-    disambiguation: doc.comment,
-    artistCredit: doc.artist,        // Songwriter/composer name
-    artistId: doc.arid,              // Songwriter MBID
-    recordingCount: doc.recording_count,
-  };
-}
-
-/**
- * Map Solr document to LabelNode
- */
-function mapSolrLabelDoc(doc: SolrLabelDoc): LabelNode {
-  return {
-    id: doc.mbid,
-    name: doc.label,
-    type: doc.type,
-    country: doc.country,
-    foundedYear: doc.begin,
-    disambiguation: doc.comment,
-  };
-}
-
-/**
- * Map Solr document to PlaceNode
- */
-function mapSolrPlaceDoc(doc: SolrPlaceDoc): PlaceNode {
-  return {
-    id: doc.mbid,
-    name: doc.place,
-    type: doc.type,
-    address: doc.address,
-    area: doc.area,
-    disambiguation: doc.comment,
-  };
-}
-
-/**
- * Map Solr document to AreaNode
- */
-function mapSolrAreaDoc(doc: SolrAreaDoc): AreaNode {
-  return {
-    id: doc.mbid,
-    name: doc.area,
-    type: doc.type,
-    disambiguation: doc.comment,
-  };
-}
-
-/**
- * Map Solr document to EventNode
- */
-function mapSolrEventDoc(doc: SolrEventDoc): EventNode {
-  return {
-    id: doc.mbid,
-    name: doc.event,
-    type: doc.type,
-    date: doc.begin,
-    place: doc.place,
-    area: doc.area,
-    disambiguation: doc.comment,
   };
 }
 
@@ -345,30 +393,15 @@ function getCollectionName(entityType: SearchEntityType): string {
 
 /**
  * Get the fields to return for each entity type
+ * Note: Only artist collection has stored fields, all others use _store XML blob
  */
 function getReturnFields(entityType: SearchEntityType): string {
-  switch (entityType) {
-    case 'artist':
-      return 'mbid,name,sortname,type,area,begin,end,ended,comment';
-    case 'recording':
-      return 'mbid,recording,artist,arid,dur,comment,release,reid,isrc';
-    case 'release':
-      return 'mbid,release,artist,arid,type,date,country,label,barcode,comment';
-    case 'release-group':
-      return 'mbid,releasegroup,artist,arid,type,firstreleasedate,comment';
-    case 'work':
-      return 'mbid,work,type,iswc,comment,artist,arid,recording_count';
-    case 'label':
-      return 'mbid,label,type,country,begin,comment';
-    case 'place':
-      return 'mbid,place,type,address,area,comment';
-    case 'area':
-      return 'mbid,area,type,comment';
-    case 'event':
-      return 'mbid,event,type,begin,place,area,comment';
-    default:
-      return 'mbid,name,comment';
+  if (entityType === 'artist') {
+    // Artist collection has indexed stored fields
+    return 'mbid,name,sortname,type,area,begin,end,ended,comment';
   }
+  // All other collections store data as XML in _store field
+  return 'mbid,_store';
 }
 
 /**
@@ -559,30 +592,39 @@ export type SearchResult<T extends SearchEntityType> = T extends 'artist'
 
 /**
  * Map a Solr document to the appropriate node type
+ * Artist collection has indexed stored fields, other collections use XML in _store
  */
 function mapSolrDocToEntity<T extends SearchEntityType>(
   entityType: T,
   doc: SolrDoc
 ): SearchResult<T> {
+  // Artist collection has stored fields, use direct mapping
+  if (entityType === 'artist') {
+    return mapSolrArtistDoc(doc as SolrArtistDoc) as SearchResult<T>;
+  }
+
+  // All other collections store data as XML in _store field
+  const xmlDoc = doc as SolrXmlDoc;
+  const xml = xmlDoc._store || '';
+  const mbid = xmlDoc.mbid;
+
   switch (entityType) {
-    case 'artist':
-      return mapSolrArtistDoc(doc as SolrArtistDoc) as SearchResult<T>;
     case 'recording':
-      return mapSolrRecordingDoc(doc as SolrRecordingDoc) as SearchResult<T>;
+      return parseRecordingXml(xml, mbid) as SearchResult<T>;
     case 'release':
-      return mapSolrReleaseDoc(doc as SolrReleaseDoc) as SearchResult<T>;
+      return parseReleaseXml(xml, mbid) as SearchResult<T>;
     case 'release-group':
-      return mapSolrReleaseGroupDoc(doc as SolrReleaseGroupDoc) as SearchResult<T>;
+      return parseReleaseGroupXml(xml, mbid) as SearchResult<T>;
     case 'work':
-      return mapSolrWorkDoc(doc as SolrWorkDoc) as SearchResult<T>;
+      return parseWorkXml(xml, mbid) as SearchResult<T>;
     case 'label':
-      return mapSolrLabelDoc(doc as SolrLabelDoc) as SearchResult<T>;
+      return parseLabelXml(xml, mbid) as SearchResult<T>;
     case 'place':
-      return mapSolrPlaceDoc(doc as SolrPlaceDoc) as SearchResult<T>;
+      return parsePlaceXml(xml, mbid) as SearchResult<T>;
     case 'area':
-      return mapSolrAreaDoc(doc as SolrAreaDoc) as SearchResult<T>;
+      return parseAreaXml(xml, mbid) as SearchResult<T>;
     case 'event':
-      return mapSolrEventDoc(doc as SolrEventDoc) as SearchResult<T>;
+      return parseEventXml(xml, mbid) as SearchResult<T>;
     default:
       throw new Error(`Unknown entity type: ${entityType}`);
   }
