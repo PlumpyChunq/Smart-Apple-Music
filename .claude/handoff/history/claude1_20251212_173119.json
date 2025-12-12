@@ -1,0 +1,44 @@
+{
+  "from": "claude1",
+  "location": "mac",
+  "timestamp": "2025-12-12T15:30:00Z",
+  "sequence": 66,
+  "status": "DEPLOY_REQUEST",
+  "task": "Deploy entity type search filter",
+  "message": "Added entity type dropdown to search - users can now filter by Artists, Songs, Albums, Compositions, Labels, Places, Events. Non-artist searches require Solr which is available on production.",
+  "needs_response": true,
+  "priority": "NORMAL",
+  "action_required": {
+    "task": "Pull and rebuild to test entity type search with Solr",
+    "commands": [
+      "cd ~/interchord && git pull origin main",
+      "podman-compose down",
+      "podman-compose up -d --build",
+      "sleep 15 && podman-compose logs --tail 30"
+    ],
+    "verification": [
+      "curl -s http://localhost:3000/api/musicbrainz/health | jq .",
+      "curl -s 'http://localhost:3000/api/autocomplete?q=Abbey&type=release&limit=5' | jq '.results[:2]'",
+      "curl -s 'http://localhost:3000/api/autocomplete?q=Yesterday&type=recording&limit=5' | jq '.results[:2]'"
+    ]
+  },
+  "context": {
+    "key_files": [
+      "src/components/artist-search.tsx - entity type dropdown",
+      "src/lib/musicbrainz/use-autocomplete.ts - entityType param support",
+      "src/app/api/autocomplete/route.ts - PostgreSQL fallback for artists"
+    ],
+    "changes_summary": [
+      "Entity type dropdown: Artists, Songs, Albums, Compositions, Labels, Places, Events",
+      "Autocomplete adapts display per entity type (shows artist credit, duration, etc.)",
+      "Artists fall back to PostgreSQL when Solr unavailable",
+      "Non-artist searches show error message when Solr unavailable"
+    ],
+    "prerequisites": [],
+    "warnings": []
+  },
+  "environment": {
+    "required_vars": [],
+    "required_tools": ["podman", "podman-compose"]
+  }
+}
