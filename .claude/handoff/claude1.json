@@ -1,35 +1,31 @@
 {
   "from": "claude1",
   "location": "mac",
-  "timestamp": "2025-12-12T22:10:00Z",
-  "sequence": 72,
+  "timestamp": "2025-12-12T22:21:00Z",
+  "sequence": 73,
   "status": "DEPLOYED",
-  "task": "Native fullscreen for graph, dark mode improvements, UI refinements",
-  "message": "Deployed native browser fullscreen for graph visualization, dark mode for maps, and collapsible UI elements. Production is live with commit 2742516.",
+  "task": "Fix Appearance section not showing in Safari/Brave browsers",
+  "message": "Fixed dark mode toggle not showing in Safari/Brave. The theme buttons were wrapped in {mounted && (...)} which caused them to not render until hydration. Changed to always render buttons but disable until mounted. Production live with commit 500e648.",
   "needs_response": false,
   "priority": "LOW",
   "deployed_changes": {
-    "commit": "2742516",
-    "summary": "Add native fullscreen for graph, dark mode map, collapsible UI elements",
+    "commit": "500e648",
+    "summary": "Fix Appearance section not showing in Safari/Brave",
     "features": [
-      "Graph fullscreen using browser's native Fullscreen API (double-click or button)",
-      "Dark mode map tiles via CSS filter (softer than dark tile providers)",
-      "Collapsible legend with minimize button",
-      "Simplified node drag behavior (no jarring layout restart)"
+      "Theme toggle buttons now always render (not conditionally)",
+      "Buttons disabled with opacity-50 cursor-wait until hydrated",
+      "Works consistently across Chrome, Safari, and Brave"
     ],
     "files_changed": [
-      "src/components/graph/artist-graph.tsx",
-      "src/components/artist-map.tsx",
-      "src/app/globals.css"
+      "src/components/settings-dropdown.tsx"
     ]
   },
   "context": {
     "key_decisions": [
-      "Used native Fullscreen API instead of portal/modal to avoid DOM manipulation issues",
-      "CSS filter approach for dark maps instead of CartoDB dark tiles (too dark)",
-      "Removed physics restart after drag to eliminate jarring repositioning"
+      "Changed from {mounted && (...)} conditional rendering to always render with disabled state",
+      "Added visual feedback (opacity-50 cursor-wait) while loading"
     ],
-    "testing_done": "Manual testing of fullscreen enter/exit, node dragging, dark mode toggle"
+    "testing_done": "Build successful, deployed to production, health check passed"
   },
   "notes": "SPOTIFY REDIRECT ISSUE: Use http://127.0.0.1:3000 instead of http://localhost:3000."
 }
