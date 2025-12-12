@@ -56,16 +56,16 @@ function EntityDetail({
         return (
           <>
             {recording.artistCredit && (
-              <p className="text-lg text-gray-600">by {recording.artistCredit}</p>
+              <p className="text-lg text-gray-600 dark:text-gray-400">by {recording.artistCredit}</p>
             )}
             {recording.releaseTitle && (
-              <p className="text-gray-500">from album: {recording.releaseTitle}</p>
+              <p className="text-gray-500 dark:text-gray-400">from album: {recording.releaseTitle}</p>
             )}
             {recording.duration && (
-              <p className="text-gray-500">Duration: {formatDuration(recording.duration)}</p>
+              <p className="text-gray-500 dark:text-gray-400">Duration: {formatDuration(recording.duration)}</p>
             )}
             {recording.isrc && (
-              <p className="text-gray-400 text-sm">ISRC: {recording.isrc}</p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm">ISRC: {recording.isrc}</p>
             )}
           </>
         );
@@ -75,12 +75,12 @@ function EntityDetail({
         return (
           <>
             {release.artistCredit && (
-              <p className="text-lg text-gray-600">by {release.artistCredit}</p>
+              <p className="text-lg text-gray-600 dark:text-gray-400">by {release.artistCredit}</p>
             )}
-            {release.type && <p className="text-gray-500">Type: {release.type}</p>}
-            {release.date && <p className="text-gray-500">Released: {release.date}</p>}
-            {release.country && <p className="text-gray-500">Country: {release.country}</p>}
-            {release.labelName && <p className="text-gray-500">Label: {release.labelName}</p>}
+            {release.type && <p className="text-gray-500 dark:text-gray-400">Type: {release.type}</p>}
+            {release.date && <p className="text-gray-500 dark:text-gray-400">Released: {release.date}</p>}
+            {release.country && <p className="text-gray-500 dark:text-gray-400">Country: {release.country}</p>}
+            {release.labelName && <p className="text-gray-500 dark:text-gray-400">Label: {release.labelName}</p>}
           </>
         );
       }
@@ -89,17 +89,17 @@ function EntityDetail({
         return (
           <>
             {work.artistCredit && (
-              <p className="text-lg text-gray-600">
+              <p className="text-lg text-gray-600 dark:text-gray-400">
                 <span className="font-medium">Written by:</span> {work.artistCredit}
               </p>
             )}
-            {work.type && <p className="text-gray-500">Type: {work.type}</p>}
+            {work.type && <p className="text-gray-500 dark:text-gray-400">Type: {work.type}</p>}
             {work.recordingCount && work.recordingCount > 0 && (
-              <p className="text-gray-500">
+              <p className="text-gray-500 dark:text-gray-400">
                 {work.recordingCount} recording{work.recordingCount !== 1 ? 's' : ''} of this composition
               </p>
             )}
-            {work.iswc && <p className="text-gray-400 text-sm">ISWC: {work.iswc}</p>}
+            {work.iswc && <p className="text-gray-400 dark:text-gray-500 text-sm">ISWC: {work.iswc}</p>}
           </>
         );
       }
@@ -107,9 +107,9 @@ function EntityDetail({
         const label = entity.data;
         return (
           <>
-            {label.type && <p className="text-gray-500">Type: {label.type}</p>}
-            {label.country && <p className="text-gray-500">Country: {label.country}</p>}
-            {label.foundedYear && <p className="text-gray-500">Founded: {label.foundedYear}</p>}
+            {label.type && <p className="text-gray-500 dark:text-gray-400">Type: {label.type}</p>}
+            {label.country && <p className="text-gray-500 dark:text-gray-400">Country: {label.country}</p>}
+            {label.foundedYear && <p className="text-gray-500 dark:text-gray-400">Founded: {label.foundedYear}</p>}
           </>
         );
       }
@@ -117,9 +117,9 @@ function EntityDetail({
         const place = entity.data;
         return (
           <>
-            {place.type && <p className="text-gray-500">Type: {place.type}</p>}
-            {place.area && <p className="text-gray-500">Area: {place.area}</p>}
-            {place.address && <p className="text-gray-500">Address: {place.address}</p>}
+            {place.type && <p className="text-gray-500 dark:text-gray-400">Type: {place.type}</p>}
+            {place.area && <p className="text-gray-500 dark:text-gray-400">Area: {place.area}</p>}
+            {place.address && <p className="text-gray-500 dark:text-gray-400">Address: {place.address}</p>}
           </>
         );
       }
@@ -127,10 +127,10 @@ function EntityDetail({
         const event = entity.data;
         return (
           <>
-            {event.type && <p className="text-gray-500">Type: {event.type}</p>}
-            {event.date && <p className="text-gray-500">Date: {event.date}</p>}
-            {event.place && <p className="text-gray-500">Venue: {event.place}</p>}
-            {event.area && <p className="text-gray-500">Location: {event.area}</p>}
+            {event.type && <p className="text-gray-500 dark:text-gray-400">Type: {event.type}</p>}
+            {event.date && <p className="text-gray-500 dark:text-gray-400">Date: {event.date}</p>}
+            {event.place && <p className="text-gray-500 dark:text-gray-400">Venue: {event.place}</p>}
+            {event.area && <p className="text-gray-500 dark:text-gray-400">Location: {event.area}</p>}
           </>
         );
       }
@@ -150,17 +150,17 @@ function EntityDetail({
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm p-6">
         <div className="mb-4">
-          <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+          <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">
             {typeLabels[entity.type] || entity.type}
           </span>
         </div>
 
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">{entity.data.name}</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{entity.data.name}</h2>
 
         {entity.data.disambiguation && (
-          <p className="text-sm text-gray-400 italic mb-4">{entity.data.disambiguation}</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 italic mb-4">{entity.data.disambiguation}</p>
         )}
 
         <div className="space-y-1 mb-6">{renderDetails()}</div>
@@ -170,13 +170,13 @@ function EntityDetail({
             href={mbUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors"
           >
             View on MusicBrainz
           </a>
           <button
             onClick={onBack}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
           >
             Back to Search
           </button>
@@ -211,14 +211,14 @@ export default function Home() {
   const hasSelection = selectedArtist || selectedEntity;
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <div className={`mx-auto py-3 ${hasSelection ? 'px-4' : 'container px-4'}`}>
         <header className="flex items-center mb-4">
           <div className="w-48">
             {hasSelection && (
               <button
                 onClick={handleBack}
-                className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 flex items-center gap-1"
               >
                 ← Back to Search
               </button>
@@ -233,10 +233,10 @@ export default function Home() {
               className="rounded-lg"
             />
             <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                 InterChord
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 The Music Web
               </p>
             </div>
@@ -272,14 +272,14 @@ export default function Home() {
           </>
         )}
 
-        <footer className="mt-16 text-center text-sm text-gray-400">
+        <footer className="mt-16 text-center text-sm text-gray-400 dark:text-gray-500">
           <p>
             Powered by{' '}
             <a
               href="https://musicbrainz.org"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-gray-600"
+              className="underline hover:text-gray-600 dark:hover:text-gray-300"
             >
               MusicBrainz
             </a>
@@ -288,7 +288,7 @@ export default function Home() {
               href="https://music.apple.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-gray-600"
+              className="underline hover:text-gray-600 dark:hover:text-gray-300"
             >
               Apple Music
             </a>

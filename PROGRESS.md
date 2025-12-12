@@ -52,6 +52,11 @@
 - [ ] Concert memories (tickets, photos, notes)
 - [ ] Encryption for sensitive user data
 
+### Appearance & UX
+- [x] Dark mode (Light/Dark/System toggle in settings)
+- [ ] Mobile responsive design
+- [ ] Keyboard navigation
+
 ### Infrastructure
 - [x] MusicBrainz database mirror (stonefrog-db01)
 - [x] Solr search indexes (15 collections)

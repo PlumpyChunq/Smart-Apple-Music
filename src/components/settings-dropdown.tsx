@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Trash2, Check } from 'lucide-react';
+import { Settings, Trash2, Check, Moon, Sun, Monitor } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { SpotifyAuth } from '@/components/spotify-auth';
 import { AppleMusicAuth } from '@/components/apple-music-auth';
 import { Button } from '@/components/ui/button';
@@ -21,10 +22,17 @@ import {
 export function SettingsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [mounted, setMounted] = useState(false);
   // Initialize state directly from localStorage (runs once on mount)
   const [primaryService, setPrimaryServiceState] = useState<MusicService>(() => getPrimaryMusicService());
   const [useNativeApp, setUseNativeAppState] = useState<boolean>(() => getUseNativeApp());
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { theme, setTheme } = useTheme();
+
+  // Avoid hydration mismatch for theme
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSetPrimaryService = useCallback((service: MusicService) => {
     setPrimaryServiceState(service);
@@ -87,17 +95,61 @@ export function SettingsDropdown() {
 
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         title="Settings"
         aria-label="Settings"
       >
-        <Settings className="w-5 h-5 text-gray-600" />
+        <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+        <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+          {/* Appearance Section */}
           <div className="p-3">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+              Appearance
+            </h3>
+            {mounted && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setTheme('light')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
+                    theme === 'light'
+                      ? 'bg-amber-50 border-amber-500 text-amber-700 dark:bg-amber-900/30 dark:border-amber-500 dark:text-amber-400'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                  title="Light mode"
+                >
+                  <Sun className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setTheme('dark')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
+                    theme === 'dark'
+                      ? 'bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-500 dark:text-indigo-400'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                  title="Dark mode"
+                >
+                  <Moon className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setTheme('system')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
+                    theme === 'system'
+                      ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:border-blue-500 dark:text-blue-400'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                  title="System preference"
+                >
+                  <Monitor className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
               Connect Music Services
             </h3>
             <div className="space-y-2">
@@ -106,11 +158,11 @@ export function SettingsDropdown() {
             </div>
           </div>
 
-          <div className="border-t border-gray-200 p-3">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">
+          <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
               Primary Music Service
             </h3>
-            <p className="text-xs text-gray-500 mb-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
               Used for playback links when both services are connected
             </p>
             <div className="flex gap-2">
@@ -118,8 +170,8 @@ export function SettingsDropdown() {
                 onClick={() => handleSetPrimaryService('spotify')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
                   primaryService === 'spotify'
-                    ? 'bg-green-50 border-green-500 text-green-700'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    ? 'bg-green-50 border-green-500 text-green-700 dark:bg-green-900/30 dark:border-green-500 dark:text-green-400'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 {primaryService === 'spotify' && <Check className="w-3.5 h-3.5" />}
@@ -129,8 +181,8 @@ export function SettingsDropdown() {
                 onClick={() => handleSetPrimaryService('apple-music')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm border transition-colors ${
                   primaryService === 'apple-music'
-                    ? 'bg-pink-50 border-pink-500 text-pink-700'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    ? 'bg-pink-50 border-pink-500 text-pink-700 dark:bg-pink-900/30 dark:border-pink-500 dark:text-pink-400'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 {primaryService === 'apple-music' && <Check className="w-3.5 h-3.5" />}
@@ -139,18 +191,18 @@ export function SettingsDropdown() {
             </div>
 
             {/* Native App Toggle */}
-            <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
-                  <span className="text-sm text-gray-700">Open in native app</span>
-                  <p className="text-xs text-gray-500">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Open in native app</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Opens links in Apple Music or Spotify app instead of browser
                   </p>
                 </div>
                 <button
                   onClick={handleToggleNativeApp}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                    useNativeApp ? 'bg-blue-600' : 'bg-gray-300'
+                    useNativeApp ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                   }`}
                   role="switch"
                   aria-checked={useNativeApp}
@@ -165,14 +217,14 @@ export function SettingsDropdown() {
             </div>
           </div>
 
-          <div className="border-t border-gray-200 p-3">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">
+          <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
               Data Management
             </h3>
 
             {showConfirm ? (
               <div className="space-y-2">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Are you sure you want to clear all favorites? This cannot be undone.
                 </p>
                 <div className="flex gap-2">
