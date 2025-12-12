@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { useTheme } from 'next-themes';
 import cytoscape, { Core, NodeSingular, Layouts } from 'cytoscape';
 import cola from 'cytoscape-cola';
 import dagre from 'cytoscape-dagre';
@@ -56,8 +57,8 @@ interface ArtistGraphProps {
   filters?: GraphFilterState;
 }
 
-// Cytoscape stylesheet
-const cytoscapeStyle = [
+// Cytoscape stylesheet - returns theme-aware styles
+const getCytoscapeStyle = (isDark: boolean) => [
   // Node base styles
   {
     selector: 'node',
@@ -68,12 +69,12 @@ const cytoscapeStyle = [
       'text-margin-y': 8,
       'font-size': 10,
       'font-weight': 500,
-      'color': '#374151',
-      'text-outline-color': '#ffffff',
+      'color': isDark ? '#e5e7eb' : '#374151',
+      'text-outline-color': isDark ? '#3d1515' : '#ffffff',
       'text-outline-width': 2,
       'background-color': '#6b7280',
       'border-width': 2,
-      'border-color': '#ffffff',
+      'border-color': isDark ? '#4b5563' : '#ffffff',
       'width': 35,
       'height': 35,
       'transition-property': 'background-color, border-color, width, height',
@@ -191,15 +192,15 @@ const cytoscapeStyle = [
     selector: 'edge',
     style: {
       'width': 1.5,
-      'line-color': '#d1d5db',
-      'target-arrow-color': '#d1d5db',
+      'line-color': isDark ? '#4b5563' : '#d1d5db',
+      'target-arrow-color': isDark ? '#4b5563' : '#d1d5db',
       'target-arrow-shape': 'triangle',
       'arrow-scale': 0.8,
       'curve-style': 'bezier',
       'opacity': 0.6,
       'label': '',  // No label by default
       'font-size': 9,
-      'text-background-color': '#ffffff',
+      'text-background-color': isDark ? '#1f2937' : '#ffffff',
       'text-background-opacity': 0.9,
       'text-background-padding': 2,
     },
@@ -255,8 +256,8 @@ const cytoscapeStyle = [
       'label': 'data(tenure)',
       'font-size': 10,
       'font-weight': 600,
-      'color': '#374151',
-      'text-background-color': '#ffffff',
+      'color': isDark ? '#e5e7eb' : '#374151',
+      'text-background-color': isDark ? '#1f2937' : '#ffffff',
       'text-background-opacity': 0.95,
       'text-background-padding': 3,
       'text-background-shape': 'roundrectangle',
@@ -296,6 +297,10 @@ export function ArtistGraph({
   const [currentLayout, setCurrentLayout] = useState<LayoutType>(layoutType);
   const [isSimulationPaused, setIsSimulationPaused] = useState(false);
   const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Theme support for dark mode
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   // Context menu state for right-click filtering
   const [contextMenu, setContextMenu] = useState<{
@@ -771,7 +776,7 @@ export function ArtistGraph({
       container: containerRef.current,
       elements: convertToElements(),
       // Type assertion needed: cytoscape's types are overly strict for style values
-      style: cytoscapeStyle as cytoscape.StylesheetStyle[],
+      style: getCytoscapeStyle(isDark) as cytoscape.StylesheetStyle[],
       layout: { name: 'preset' },
       minZoom: 0.1,
       maxZoom: 4,
@@ -974,6 +979,12 @@ export function ArtistGraph({
     // (see callback refs pattern comment above) to prevent Cytoscape reinitialization.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convertToElements, getLayoutOptions]);
+
+  // Update Cytoscape styles when theme changes
+  useEffect(() => {
+    if (!cyRef.current || isDestroyedRef.current) return;
+    cyRef.current.style(getCytoscapeStyle(isDark) as cytoscape.StylesheetStyle[]);
+  }, [isDark]);
 
   // Update selection when selectedNodeId changes
   useEffect(() => {
