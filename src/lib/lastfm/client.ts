@@ -68,21 +68,24 @@ function getBestImageUrl(images?: LastFmImage[]): string | undefined {
 /**
  * Get artist info from Last.fm
  * Uses server-side proxy to avoid CORS issues
+ * Prefers MBID lookup for accurate results (avoids name disambiguation issues)
  */
-export async function getLastFmArtistInfo(artistName: string): Promise<{
+export async function getLastFmArtistInfo(artistName: string, mbid?: string): Promise<{
   imageUrl?: string;
   url?: string;
 } | null> {
-  const cacheKey = `lastfm-artist-${artistName.toLowerCase()}`;
+  // Use MBID for cache key if available (more reliable)
+  const cacheKey = mbid ? `lastfm-artist-mbid-${mbid}` : `lastfm-artist-${artistName.toLowerCase()}`;
   const cached = cacheGet<{ imageUrl?: string; url?: string }>(cacheKey);
   if (cached) {
     return cached;
   }
 
   try {
+    // Prefer MBID lookup for accurate results (e.g., "Andrew Weiss" has multiple artists)
     const params = new URLSearchParams({
       method: 'artist.getinfo',
-      artist: artistName,
+      ...(mbid ? { mbid } : { artist: artistName }),
     });
 
     const response = await fetch(`/api/lastfm?${params}`);
@@ -113,21 +116,25 @@ export async function getLastFmArtistInfo(artistName: string): Promise<{
 /**
  * Get top albums for an artist from Last.fm
  * Uses server-side proxy to avoid CORS issues
+ * Prefers MBID lookup for accurate results (avoids name disambiguation issues)
  */
 export async function getLastFmTopAlbums(
   artistName: string,
-  limit: number = 20
+  limit: number = 20,
+  mbid?: string
 ): Promise<AppleMusicAlbumInfo[]> {
-  const cacheKey = `lastfm-albums-${artistName.toLowerCase()}`;
+  // Use MBID for cache key if available (more reliable)
+  const cacheKey = mbid ? `lastfm-albums-mbid-${mbid}` : `lastfm-albums-${artistName.toLowerCase()}`;
   const cached = cacheGet<AppleMusicAlbumInfo[]>(cacheKey);
   if (cached) {
     return cached;
   }
 
   try {
+    // Prefer MBID lookup for accurate results (e.g., "Andrew Weiss" has multiple artists)
     const params = new URLSearchParams({
       method: 'artist.gettopalbums',
-      artist: artistName,
+      ...(mbid ? { mbid } : { artist: artistName }),
       limit: String(limit),
     });
 
@@ -162,6 +169,7 @@ export async function getLastFmTopAlbums(
 
 /**
  * Enrich an artist with Last.fm data (image, albums)
+ * Uses MBID for lookups when available to avoid name disambiguation issues
  */
 export async function enrichArtistWithLastFm(
   artist: ArtistNode
@@ -174,9 +182,10 @@ export async function enrichArtistWithLastFm(
 
   try {
     // Fetch artist info and albums in parallel
+    // Pass MBID (artist.id) to avoid disambiguation issues (e.g., multiple "Andrew Weiss" artists)
     const [artistInfo, albums] = await Promise.all([
-      getLastFmArtistInfo(artist.name),
-      getLastFmTopAlbums(artist.name, 50),
+      getLastFmArtistInfo(artist.name, artist.id),
+      getLastFmTopAlbums(artist.name, 50, artist.id),
     ]);
 
     const enrichmentData: Partial<ArtistNode> = {};
