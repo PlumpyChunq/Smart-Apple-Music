@@ -402,13 +402,18 @@ export async function getArtistRelationshipsFromDB(mbid: string): Promise<{
     }
 
     // Create relationship (source -> target direction preserved from original link)
+    // Include begin date in ID to handle multiple relationships of same type
+    // (e.g., musician who left and rejoined a band)
+    const beginDate = formatDate(row.begin_date_year, row.begin_date_month, row.begin_date_day);
+    const periodSuffix = beginDate ? `-${beginDate}` : '';
+
     relationships.push({
-      id: `${row.entity0_gid}-${mappedType}-${row.entity1_gid}`,
+      id: `${row.entity0_gid}-${mappedType}-${row.entity1_gid}${periodSuffix}`,
       source: row.entity0_gid,
       target: row.entity1_gid,
       type: mappedType,
       period: {
-        begin: formatDate(row.begin_date_year, row.begin_date_month, row.begin_date_day),
+        begin: beginDate,
         end: row.ended
           ? formatDate(row.end_date_year, row.end_date_month, row.end_date_day)
           : null,

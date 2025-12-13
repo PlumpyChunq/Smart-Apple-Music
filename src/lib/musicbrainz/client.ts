@@ -618,8 +618,12 @@ function mapRelationToEdge(
     ? [sourceId, relation.artist.id]
     : [relation.artist.id, sourceId];
 
+  // Include period in ID to handle multiple relationships of same type
+  // (e.g., musician who left and rejoined a band)
+  const periodSuffix = relation.begin ? `-${relation.begin}` : '';
+
   return {
-    id: `${source}-${mappedType}-${target}`,
+    id: `${source}-${mappedType}-${target}${periodSuffix}`,
     source,
     target,
     type: mappedType,
