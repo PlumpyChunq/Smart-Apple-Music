@@ -1,6 +1,6 @@
 # InterChord - The Music Web
 
-> **Last Updated:** 2025-12-04 | **Current Phase:** 3 - Extended Discovery
+> **Last Updated:** 2025-12-13 | **Current Phase:** Web App Phase 3 Complete, Native App Phase 4
 
 ## Quick Reference
 
@@ -364,6 +364,12 @@ A music discovery application that visualizes artist relationships through inter
 >
 > **Always update PROGRESS.md before/after completing tasks.**
 
+> **📚 See `FEATURES.md` for:**
+> - Complete web app feature documentation
+> - Graph visualization and layout options
+> - API integrations and data sources
+> - UI components and architecture
+
 **Key Features (Implemented):**
 - Artist search with MusicBrainz disambiguation
 - Interactive artist relationship graph with multiple layouts (Force/COSE, Hierarchical/Dagre, Concentric, Spoke)
@@ -596,6 +602,152 @@ See `PROGRESS.md` for the complete roadmap (Phases 3-7). Key upcoming items:
 
 ---
 
+## Native iOS/macOS App Development
+
+### Overview
+
+Native SwiftUI app targeting macOS 14+, iOS 17+, iPadOS 17+. Goal is full feature parity with the web app.
+
+**Location:** `InterChord/` directory
+
+### Quick Commands
+
+```bash
+# Open in Xcode
+open InterChord/InterChord.xcodeproj
+
+# Build from command line
+xcodebuild -project InterChord/InterChord.xcodeproj -scheme InterChord -configuration Debug build
+```
+
+### Native App Architecture
+
+```
+InterChord/InterChord/
+├── App/
+│   └── InterChordApp.swift       # Main entry, SwiftData container
+├── Models/
+│   ├── Artist.swift              # MusicBrainz artist (Codable)
+│   ├── Relationship.swift        # 9 relationship types with tenure
+│   ├── Concert.swift             # Setlist.fm concert model
+│   ├── FavoriteArtist.swift      # SwiftData persistent model
+│   └── GraphModel.swift          # GraphNode, GraphEdge, ArtistGraph
+├── Services/
+│   ├── MusicBrainzClient.swift   # Actor with dual-server fallback
+│   ├── SupplementClient.swift    # Wikipedia founding members
+│   └── SetlistFMClient.swift     # [Phase 4] Concert API
+├── ViewModels/
+│   ├── SearchViewModel.swift     # Artist search state
+│   ├── ArtistDetailViewModel.swift
+│   ├── GraphViewModel.swift      # Graph state management
+│   └── FavoritesViewModel.swift  # [Phase 4] Favorites state
+├── Views/
+│   ├── SearchView.swift          # Sidebar search
+│   ├── ArtistDetailView.swift    # Detail panel
+│   ├── ArtistHeaderSection.swift # Artist header with favorite toggle
+│   ├── RelationshipSection.swift # Grouped relationships
+│   ├── GraphView.swift           # SpriteKit wrapper
+│   └── FavoritesListView.swift   # [Phase 4] Favorites sidebar
+├── Graph/
+│   ├── GraphScene.swift          # SpriteKit visualization
+│   └── GraphModel.swift          # Graph data structures
+└── Utilities/
+    └── PlatformCompatibility.swift # macOS/iOS abstractions
+```
+
+### Development Phases
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1-3 | Foundation (search, detail, basic graph) | ✅ Complete |
+| 4 | **Favorites & Concerts** | 🚧 In Progress |
+| 5 | Enhanced Graph (layouts, filtering) | ⬜ Planned |
+| 6 | Timeline Visualization | ⬜ Planned |
+| 7 | Sidebar Sections (collapsible) | ⬜ Planned |
+| 8 | Music Services (Spotify, Apple Music) | ⬜ Planned |
+| 9 | Geographic Map | ⬜ Planned |
+| 10 | Polish & App Store | ⬜ Planned |
+
+### Phase 4: Favorites & Concerts (Current)
+
+**4.1 SwiftData Favorites**
+- [x] Create `FavoriteArtist` SwiftData model
+- [x] Add `ModelContainer` to `InterChordApp`
+- [x] Wire favorite toggle in `ArtistHeaderSection`
+- [ ] Create `FavoritesViewModel`
+- [ ] Create `FavoritesListView` with genre grouping
+- [ ] Add favorites section to sidebar
+
+**4.2 Setlist.fm Concerts**
+- [ ] Create `SetlistFMClient` actor (proxy through web app API)
+- [ ] Add `RecentShowsSection` to detail view
+- [ ] Display venue, city, date, setlist.fm link
+- [ ] Cache concert data (30 min TTL)
+
+### Phase 5: Enhanced Graph
+
+**Layouts to Implement:**
+| Layout | Algorithm | Status |
+|--------|-----------|--------|
+| Spoke | Radial rings by depth | ✅ Done |
+| Force | SKFieldNode + SKPhysicsBody | ⬜ Planned |
+| Hierarchical | Custom dagre-like positioning | ⬜ Planned |
+| Concentric | BFS depth rings | ⬜ Planned |
+
+**Filtering:**
+- Relationship type toggles
+- Temporal filter (All Time vs Current)
+- Year range slider
+- Node type filter (person/group)
+
+### Key Implementation Details
+
+**MusicBrainz Client (Native)**
+- Uses hostname `stonefrog-db01.stonefrog.com:5000`
+- Falls back to public API if private server unreachable
+- Actor-based for thread safety
+- 1.1 second rate limiting for public API
+
+**SwiftData Favorites**
+```swift
+@Model
+final class FavoriteArtist {
+    @Attribute(.unique) var mbid: String
+    var name: String
+    var artistType: String
+    var genre: String?
+    var addedAt: Date
+    var imageUrl: String?
+}
+```
+
+**Graph Node Types:**
+| Type | Color | Size |
+|------|-------|------|
+| Root | Blue | 40px |
+| Group | Blue | 25px |
+| Person | Green | 25px |
+| Orchestra | Purple | 25px |
+| Founding | Purple ring | - |
+
+### Native vs Web Feature Comparison
+
+| Feature | Web | Native |
+|---------|-----|--------|
+| Artist Search | ✅ | ✅ |
+| Relationship Graph | ✅ Cytoscape | ✅ SpriteKit |
+| 4 Graph Layouts | ✅ | 🚧 Spoke only |
+| Graph Filtering | ✅ | ⬜ Planned |
+| Favorites | ✅ localStorage | 🚧 SwiftData |
+| Dark Mode | ✅ | ✅ System |
+| Setlist.fm | ✅ | ⬜ Phase 4 |
+| Spotify Import | ✅ | ⬜ Phase 8 |
+| Apple Music | ⬜ | ⬜ Phase 8 |
+| Timeline | ✅ | ⬜ Phase 6 |
+| Geographic Map | ✅ | ⬜ Phase 9 |
+
+---
+
 ## References & Best Practices
 
 This documentation follows industry standards:
@@ -627,3 +779,4 @@ This documentation follows industry standards:
 - Always follow best practices
 - Use official documentation when possible
 - Remember to use http://127.0.0.1:3000 because of the Spotify redirect issue
+- Remember, we should use our local database first

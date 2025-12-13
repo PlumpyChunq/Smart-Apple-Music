@@ -43,9 +43,8 @@ actor MusicBrainzClient {
 
     // MARK: - Configuration
 
-    /// Private server URL (stonefrog-db01 via hostname - best practice over IP)
-    /// Port 5000 is the MusicBrainz API container
-    private let privateServerURL = URL(string: "http://stonefrog-db01.stonefrog.com:5000/ws/2")!
+    /// Private server URL (stonefrog-db01 via Cloudflare tunnel)
+    private let privateServerURL = URL(string: "https://interchord.stonefrog.com/api/musicbrainz")!
 
     /// Public MusicBrainz API URL
     private let publicAPIURL = URL(string: "https://musicbrainz.org/ws/2")!
@@ -89,15 +88,15 @@ actor MusicBrainzClient {
 
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
 
-        // Try private server first (skip reachability check, just try it)
-        do {
-            let artists = try await searchFromPrivateServer(query: encodedQuery)
-            lastDataSource = .privateServer
-            isPrivateServerReachable = true
-            return artists
-        } catch {
-            // Private server failed, mark as unreachable and fall back
-            isPrivateServerReachable = false
+        // Try private server first
+        if await checkPrivateServerReachability() {
+            do {
+                let artists = try await searchFromPrivateServer(query: encodedQuery)
+                lastDataSource = .privateServer
+                return artists
+            } catch {
+                // Fall through to public API
+            }
         }
 
         // Fall back to public API with rate limiting
@@ -110,8 +109,8 @@ actor MusicBrainzClient {
     /// - Parameter mbid: MusicBrainz ID
     /// - Returns: Artist with full details
     func fetchArtist(mbid: String) async throws -> Artist {
-        // Try private server first (use cached reachability if available)
-        if isPrivateServerReachable ?? true {
+        // Try private server first
+        if await checkPrivateServerReachability() {
             do {
                 let artist = try await fetchArtistFromPrivateServer(mbid: mbid)
                 lastDataSource = .privateServer
@@ -131,8 +130,8 @@ actor MusicBrainzClient {
     /// - Parameter mbid: MusicBrainz ID
     /// - Returns: Array of relationships
     func fetchRelationships(mbid: String) async throws -> [Relationship] {
-        // Try private server first (use cached reachability if available)
-        if isPrivateServerReachable ?? true {
+        // Try private server first
+        if await checkPrivateServerReachability() {
             do {
                 let relationships = try await fetchRelationshipsFromPrivateServer(mbid: mbid)
                 lastDataSource = .privateServer
@@ -151,10 +150,12 @@ actor MusicBrainzClient {
     // MARK: - Private Server Methods
 
     private func searchFromPrivateServer(query: String) async throws -> [Artist] {
-        // Direct MusicBrainz API format: /ws/2/artist?query=...
+        // The private server proxies to MusicBrainz API
+        // Endpoint: /search?type=artist&query=...
         var urlComponents = URLComponents(url: privateServerURL, resolvingAgainstBaseURL: false)!
-        urlComponents.path = "/ws/2/artist"
+        urlComponents.path += "/search"
         urlComponents.queryItems = [
+            URLQueryItem(name: "type", value: "artist"),
             URLQueryItem(name: "query", value: query),
             URLQueryItem(name: "fmt", value: "json"),
             URLQueryItem(name: "limit", value: "25")
@@ -164,17 +165,14 @@ actor MusicBrainzClient {
             throw ClientError.invalidURL
         }
 
-        var request = URLRequest(url: url)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-
-        let (data, _) = try await session.data(for: request)
+        let (data, _) = try await session.data(from: url)
         let response = try JSONDecoder().decode(ArtistSearchResponse.self, from: data)
         return response.artists
     }
 
     private func fetchArtistFromPrivateServer(mbid: String) async throws -> Artist {
         var urlComponents = URLComponents(url: privateServerURL, resolvingAgainstBaseURL: false)!
-        urlComponents.path = "/ws/2/artist/\(mbid)"
+        urlComponents.path += "/artist/\(mbid)"
         urlComponents.queryItems = [
             URLQueryItem(name: "fmt", value: "json")
         ]
@@ -183,19 +181,13 @@ actor MusicBrainzClient {
             throw ClientError.invalidURL
         }
 
-        var request = URLRequest(url: url)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-
-        let (data, _) = try await session.data(for: request)
+        let (data, _) = try await session.data(from: url)
         return try JSONDecoder().decode(Artist.self, from: data)
     }
 
     private func fetchRelationshipsFromPrivateServer(mbid: String) async throws -> [Relationship] {
-        // Check for cancellation early
-        try Task.checkCancellation()
-
         var urlComponents = URLComponents(url: privateServerURL, resolvingAgainstBaseURL: false)!
-        urlComponents.path = "/ws/2/artist/\(mbid)"
+        urlComponents.path += "/artist/\(mbid)"
         urlComponents.queryItems = [
             URLQueryItem(name: "inc", value: "artist-rels"),
             URLQueryItem(name: "fmt", value: "json")
@@ -205,20 +197,9 @@ actor MusicBrainzClient {
             throw ClientError.invalidURL
         }
 
-        var request = URLRequest(url: url)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 30
-
-        // Check for cancellation before network request
-        try Task.checkCancellation()
-
-        let (data, _) = try await session.data(for: request)
-
-        // Check for cancellation after network request
-        try Task.checkCancellation()
-
-        let decoded = try JSONDecoder().decode(ArtistRelationshipsResponse.self, from: data)
-        return parseRelationships(from: decoded, sourceArtistId: mbid)
+        let (data, _) = try await session.data(from: url)
+        let response = try JSONDecoder().decode(ArtistRelationshipsResponse.self, from: data)
+        return parseRelationships(from: response, sourceArtistId: mbid)
     }
 
     // MARK: - Public API Methods
@@ -308,20 +289,10 @@ actor MusicBrainzClient {
             return cached
         }
 
-        // Try a simple artist lookup to test connectivity
-        // MusicBrainz API doesn't have a /health endpoint
-        guard let testURL = URL(string: "http://stonefrog-db01.stonefrog.com:5000/ws/2/artist/5b11f4ce-a62d-471e-81fc-a69a8278c7da?fmt=json") else {
-            isPrivateServerReachable = false
-            lastReachabilityCheck = Date()
-            return false
-        }
-
-        var request = URLRequest(url: testURL)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 3 // Quick timeout for reachability check
-
+        // Ping health endpoint
+        let healthURL = privateServerURL.appendingPathComponent("health")
         do {
-            let (_, response) = try await session.data(for: request)
+            let (_, response) = try await session.data(from: healthURL)
             let isReachable = (response as? HTTPURLResponse)?.statusCode == 200
             isPrivateServerReachable = isReachable
             lastReachabilityCheck = Date()
@@ -356,132 +327,5 @@ actor MusicBrainzClient {
                 ended: relation.ended
             )
         }
-    }
-
-    // MARK: - Albums (Release Groups)
-
-    /// Fetch albums (release groups) for an artist.
-    /// - Parameters:
-    ///   - mbid: MusicBrainz artist ID
-    ///   - primaryTypes: Filter by primary type (default: Album only)
-    /// - Returns: Array of albums sorted by date (newest first)
-    func fetchAlbums(mbid: String, primaryTypes: [String] = ["Album", "EP"]) async throws -> [Album] {
-        // Try private server first
-        if isPrivateServerReachable ?? true {
-            do {
-                let albums = try await fetchAlbumsFromPrivateServer(mbid: mbid, primaryTypes: primaryTypes)
-                lastDataSource = .privateServer
-                return albums
-            } catch {
-                // Fall through to public API
-            }
-        }
-
-        // Fall back to public API
-        let albums = try await fetchAlbumsFromPublicAPI(mbid: mbid, primaryTypes: primaryTypes)
-        lastDataSource = .publicAPI
-        return albums
-    }
-
-    private func fetchAlbumsFromPrivateServer(mbid: String, primaryTypes: [String]) async throws -> [Album] {
-        return try await fetchAlbumsFromURL(privateServerURL, mbid: mbid, primaryTypes: primaryTypes)
-    }
-
-    private func fetchAlbumsFromPublicAPI(mbid: String, primaryTypes: [String]) async throws -> [Album] {
-        try await enforceRateLimit()
-        return try await fetchAlbumsFromURL(publicAPIURL, mbid: mbid, primaryTypes: primaryTypes)
-    }
-
-    private func fetchAlbumsFromURL(_ baseURL: URL, mbid: String, primaryTypes: [String]) async throws -> [Album] {
-        var allReleaseGroups: [MusicBrainzReleaseGroup] = []
-        var offset = 0
-        let limit = 100
-        var hasMore = true
-
-        while hasMore {
-            var urlComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-            urlComponents.path = "/ws/2/release-group"
-            urlComponents.queryItems = [
-                URLQueryItem(name: "artist", value: mbid),
-                URLQueryItem(name: "limit", value: String(limit)),
-                URLQueryItem(name: "offset", value: String(offset)),
-                URLQueryItem(name: "fmt", value: "json")
-            ]
-
-            guard let url = urlComponents.url else {
-                throw ClientError.invalidURL
-            }
-
-            var request = URLRequest(url: url)
-            request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-            request.timeoutInterval = 30
-
-            let (data, _) = try await session.data(for: request)
-            let response = try JSONDecoder().decode(MusicBrainzReleaseGroupsResponse.self, from: data)
-
-            allReleaseGroups.append(contentsOf: response.releaseGroups)
-
-            let totalCount = response.releaseGroupCount
-            offset += response.releaseGroups.count
-            hasMore = offset < totalCount && response.releaseGroups.count == limit
-        }
-
-        // Filter by primary type and exclude compilations/live albums
-        let filtered = allReleaseGroups.filter { rg in
-            guard let primaryType = rg.primaryType else { return false }
-            guard primaryTypes.contains(primaryType) else { return false }
-
-            let secondaryTypes = rg.secondaryTypes ?? []
-            let excludeSecondary = ["Compilation", "Live"]
-            if secondaryTypes.contains(where: { excludeSecondary.contains($0) }) {
-                return false
-            }
-
-            return true
-        }
-
-        // Deduplicate by normalized title + year
-        var deduped: [String: MusicBrainzReleaseGroup] = [:]
-        for rg in filtered {
-            let year = rg.firstReleaseDate?.prefix(4) ?? "unknown"
-            let normalizedTitle = normalizeTitle(rg.title)
-            let key = "\(normalizedTitle)|\(year)"
-
-            if let existing = deduped[key] {
-                // Keep shorter title (usually cleaner)
-                if rg.title.count < existing.title.count {
-                    deduped[key] = rg
-                }
-            } else {
-                deduped[key] = rg
-            }
-        }
-
-        // Convert to Album and sort by date (newest first)
-        let albums = deduped.values.map { Album(from: $0) }
-        return albums.sorted { a, b in
-            let dateA = a.releaseDate ?? ""
-            let dateB = b.releaseDate ?? ""
-            return dateB < dateA
-        }
-    }
-
-    /// Normalize album title for deduplication
-    private func normalizeTitle(_ title: String) -> String {
-        title
-            // Remove subtitles
-            .replacingOccurrences(of: #"\s*[:–—-]\s+.*$"#, with: "", options: .regularExpression)
-            .lowercased()
-            // Remove parentheticals
-            .replacingOccurrences(of: #"\s*\([^)]*\)\s*"#, with: " ", options: .regularExpression)
-            // Remove brackets
-            .replacingOccurrences(of: #"\s*\[[^\]]*\]\s*"#, with: " ", options: .regularExpression)
-            // Normalize ampersand
-            .replacingOccurrences(of: "&", with: " and ")
-            // Remove non-alphanumeric
-            .replacingOccurrences(of: #"[^a-z0-9\s]"#, with: "", options: .regularExpression)
-            // Collapse whitespace
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespaces)
     }
 }

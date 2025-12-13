@@ -77,7 +77,7 @@ actor SupplementClient {
     // MARK: - Initialization
 
     init(
-        baseURL: URL = URL(string: "http://127.0.0.1:3000/api")!,
+        baseURL: URL = URL(string: "http://stonefrog-db01.stonefrog.com:3000/api")!,
         session: URLSession = .shared
     ) {
         self.baseURL = baseURL
