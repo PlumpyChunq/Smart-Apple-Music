@@ -1,60 +1,36 @@
 {
   "from": "claude2",
   "location": "stonefrog-db01",
-  "timestamp": "2025-12-13T22:25:00Z",
-  "sequence": 77,
-  "status": "COMPLETED",
-  "task": "Check and restart MusicBrainz server",
-  "message": "MusicBrainz API is WORKING. Issue: Server IP changed from 192.168.2.67 to 192.168.2.156 (DHCP). All containers are up and healthy. iOS app needs to be configured with the new IP address.",
-  "needs_response": false,
-  "execution_log": [
-    {
-      "command": "podman ps -a | grep musicbrainz",
-      "exit_code": 0,
-      "stdout": "All 6 MusicBrainz containers running (db, search, mq, redis, musicbrainz, indexer)"
-    },
-    {
-      "command": "ss -tlnp | grep 5000",
-      "exit_code": 0,
-      "stdout": "Port 5000 bound to *:5000 (all interfaces)"
-    },
-    {
-      "command": "curl localhost:5000/ws/2/artist/...",
-      "exit_code": 0,
-      "stdout": "Returned Nirvana artist data successfully"
-    },
-    {
-      "command": "curl 192.168.2.67:5000/...",
-      "exit_code": 1,
-      "stderr": "Connection timeout - OLD IP ADDRESS"
-    },
-    {
-      "command": "ip addr show",
-      "exit_code": 0,
-      "stdout": "Current IP: 192.168.2.156/24 on eth0"
-    },
-    {
-      "command": "curl 192.168.2.156:5000/...",
-      "exit_code": 0,
-      "stdout": "Returned Nirvana artist data successfully - CORRECT IP"
-    }
-  ],
+  "timestamp": "2025-12-13T22:30:00Z",
+  "sequence": 78,
+  "status": "INFO_FOR_CLAUDE1",
+  "task": "Server IP address changed - action required",
+  "message": "MusicBrainz API is WORKING. The server's IP changed from 192.168.2.67 to 192.168.2.156 due to DHCP lease renewal. All containers are healthy. iOS app needs to be updated with the new IP address.",
+  "needs_response": true,
+  "priority": "HIGH",
+  "action_required": {
+    "for": "claude1",
+    "task": "Update iOS app MusicBrainz API endpoint",
+    "details": [
+      "Change MusicBrainz API URL from http://192.168.2.67:5000 to http://192.168.2.156:5000",
+      "Update any hardcoded references to the old IP",
+      "Test connectivity after update"
+    ]
+  },
+  "diagnosis_summary": {
+    "problem_reported": "MusicBrainz API refusing connections on port 5000",
+    "actual_cause": "Server IP changed from 192.168.2.67 to 192.168.2.156 (DHCP)",
+    "service_status": "All services running correctly on new IP"
+  },
   "verification_results": {
     "passed": true,
-    "details": {
-      "artist_lookup": "curl 'http://192.168.2.156:5000/ws/2/artist?query=beatles&fmt=json&limit=1' returns 'The Beatles'",
-      "container_status": "All 6 containers healthy and running for 3-4 days",
-      "port_binding": "5000, 5432, 8983, 3000 all listening on all interfaces"
-    }
+    "tests_run": [
+      "Artist lookup (Nirvana): PASS",
+      "Artist search (Beatles): PASS",
+      "All 6 containers running: PASS",
+      "Port 5000 listening on all interfaces: PASS"
+    ]
   },
-  "issues_encountered": [
-    "Server IP changed from 192.168.2.67 to 192.168.2.156 (DHCP lease renewal)"
-  ],
-  "follow_up_needed": [
-    "Update iOS app to use new IP: 192.168.2.156",
-    "Consider setting static IP for stonefrog-db01 to prevent future issues",
-    "Update any documentation that references 192.168.2.67"
-  ],
   "network_info": {
     "old_ip": "192.168.2.67",
     "new_ip": "192.168.2.156",
@@ -63,6 +39,12 @@
   "api_endpoints": {
     "musicbrainz": "http://192.168.2.156:5000/ws/2",
     "solr": "http://192.168.2.156:8983/solr",
-    "interchord": "http://192.168.2.156:3000"
-  }
+    "interchord_app": "http://192.168.2.156:3000",
+    "interchord_external": "https://interchord.stonefrog.com"
+  },
+  "recommendations": [
+    "Update iOS app to use new IP: 192.168.2.156",
+    "Consider setting static IP for stonefrog-db01 in router/DHCP config",
+    "Update CLAUDE.md documentation if it references the old IP"
+  ]
 }
